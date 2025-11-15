@@ -57,10 +57,10 @@ RM = /Users/bytedance/homebrew/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /Users/bytedance/poe/dominion-transformer/game
+CMAKE_SOURCE_DIR = /Users/bytedance/dominion/dominion-transformer/game
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /Users/bytedance/poe/dominion-transformer/game
+CMAKE_BINARY_DIR = /Users/bytedance/dominion/dominion-transformer/game
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/bytedance/poe/dominion-transformer/game/CMakeFiles /Users/bytedance/poe/dominion-transformer/game//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/bytedance/dominion/dominion-transformer/game/CMakeFiles /Users/bytedance/dominion/dominion-transformer/game//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/bytedance/poe/dominion-transformer/game/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/bytedance/dominion/dominion-transformer/game/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -129,77 +129,114 @@ dominion_cpp_game/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/build
 .PHONY : dominion_cpp_game/fast
 
-src/board_state.o: src/board_state.cpp.o
-.PHONY : src/board_state.o
+#=============================================================================
+# Target rules for targets named dominion_cards_test
+
+# Build rule for target.
+dominion_cards_test: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 dominion_cards_test
+.PHONY : dominion_cards_test
+
+# fast build rule for target.
+dominion_cards_test/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cards_test.dir/build.make CMakeFiles/dominion_cards_test.dir/build
+.PHONY : dominion_cards_test/fast
+
+src/actions.o: src/actions.cpp.o
+.PHONY : src/actions.o
 
 # target to build an object file
-src/board_state.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/board_state.cpp.o
-.PHONY : src/board_state.cpp.o
+src/actions.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/actions.cpp.o
+.PHONY : src/actions.cpp.o
 
-src/board_state.i: src/board_state.cpp.i
-.PHONY : src/board_state.i
+src/actions.i: src/actions.cpp.i
+.PHONY : src/actions.i
 
 # target to preprocess a source file
-src/board_state.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/board_state.cpp.i
-.PHONY : src/board_state.cpp.i
+src/actions.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/actions.cpp.i
+.PHONY : src/actions.cpp.i
 
-src/board_state.s: src/board_state.cpp.s
-.PHONY : src/board_state.s
+src/actions.s: src/actions.cpp.s
+.PHONY : src/actions.s
 
 # target to generate assembly for a file
-src/board_state.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/board_state.cpp.s
-.PHONY : src/board_state.cpp.s
+src/actions.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/actions.cpp.s
+.PHONY : src/actions.cpp.s
 
-src/context.o: src/context.cpp.o
-.PHONY : src/context.o
+src/cards.o: src/cards.cpp.o
+.PHONY : src/cards.o
 
 # target to build an object file
-src/context.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/context.cpp.o
-.PHONY : src/context.cpp.o
+src/cards.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/cards.cpp.o
+.PHONY : src/cards.cpp.o
 
-src/context.i: src/context.cpp.i
-.PHONY : src/context.i
+src/cards.i: src/cards.cpp.i
+.PHONY : src/cards.i
 
 # target to preprocess a source file
-src/context.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/context.cpp.i
-.PHONY : src/context.cpp.i
+src/cards.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/cards.cpp.i
+.PHONY : src/cards.cpp.i
 
-src/context.s: src/context.cpp.s
-.PHONY : src/context.s
+src/cards.s: src/cards.cpp.s
+.PHONY : src/cards.s
 
 # target to generate assembly for a file
-src/context.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/context.cpp.s
-.PHONY : src/context.cpp.s
+src/cards.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/cards.cpp.s
+.PHONY : src/cards.cpp.s
 
-src/engine.o: src/engine.cpp.o
-.PHONY : src/engine.o
+src/cards_test.o: src/cards_test.cpp.o
+.PHONY : src/cards_test.o
 
 # target to build an object file
-src/engine.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/engine.cpp.o
-.PHONY : src/engine.cpp.o
+src/cards_test.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cards_test.dir/build.make CMakeFiles/dominion_cards_test.dir/src/cards_test.cpp.o
+.PHONY : src/cards_test.cpp.o
 
-src/engine.i: src/engine.cpp.i
-.PHONY : src/engine.i
+src/cards_test.i: src/cards_test.cpp.i
+.PHONY : src/cards_test.i
 
 # target to preprocess a source file
-src/engine.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/engine.cpp.i
-.PHONY : src/engine.cpp.i
+src/cards_test.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cards_test.dir/build.make CMakeFiles/dominion_cards_test.dir/src/cards_test.cpp.i
+.PHONY : src/cards_test.cpp.i
 
-src/engine.s: src/engine.cpp.s
-.PHONY : src/engine.s
+src/cards_test.s: src/cards_test.cpp.s
+.PHONY : src/cards_test.s
 
 # target to generate assembly for a file
-src/engine.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/engine.cpp.s
-.PHONY : src/engine.cpp.s
+src/cards_test.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cards_test.dir/build.make CMakeFiles/dominion_cards_test.dir/src/cards_test.cpp.s
+.PHONY : src/cards_test.cpp.s
+
+src/dominion.o: src/dominion.cpp.o
+.PHONY : src/dominion.o
+
+# target to build an object file
+src/dominion.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/dominion.cpp.o
+.PHONY : src/dominion.cpp.o
+
+src/dominion.i: src/dominion.cpp.i
+.PHONY : src/dominion.i
+
+# target to preprocess a source file
+src/dominion.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/dominion.cpp.i
+.PHONY : src/dominion.cpp.i
+
+src/dominion.s: src/dominion.cpp.s
+.PHONY : src/dominion.s
+
+# target to generate assembly for a file
+src/dominion.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dominion_cpp_game.dir/build.make CMakeFiles/dominion_cpp_game.dir/src/dominion.cpp.s
+.PHONY : src/dominion.cpp.s
 
 # Help Target
 help:
@@ -209,16 +246,20 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... dominion_cards_test"
 	@echo "... dominion_cpp_game"
-	@echo "... src/board_state.o"
-	@echo "... src/board_state.i"
-	@echo "... src/board_state.s"
-	@echo "... src/context.o"
-	@echo "... src/context.i"
-	@echo "... src/context.s"
-	@echo "... src/engine.o"
-	@echo "... src/engine.i"
-	@echo "... src/engine.s"
+	@echo "... src/actions.o"
+	@echo "... src/actions.i"
+	@echo "... src/actions.s"
+	@echo "... src/cards.o"
+	@echo "... src/cards.i"
+	@echo "... src/cards.s"
+	@echo "... src/cards_test.o"
+	@echo "... src/cards_test.i"
+	@echo "... src/cards_test.s"
+	@echo "... src/dominion.o"
+	@echo "... src/dominion.i"
+	@echo "... src/dominion.s"
 .PHONY : help
 
 

@@ -1,19 +1,65 @@
-#pragma once
+#ifndef OPEN_SPIEL_GAMES_DOMINION_CARDS_H_
+#define OPEN_SPIEL_GAMES_DOMINION_CARDS_H_
+
 #include <string>
-#include <string_view>
 #include <vector>
-#include <unordered_map>
 #include <memory>
 #include <optional>
 
+#include "open_spiel/spiel.h"
+
+namespace open_spiel {
+namespace dominion {
+
+class DominionState;
+
 class EffectChain;
+
+enum class CardName {
+  // Basic supply cards
+  CARD_Copper,
+  CARD_Silver,
+  CARD_Gold,
+  CARD_Estate,
+  CARD_Duchy,
+  CARD_Province,
+  CARD_Curse,
+
+  // 26 Base set cards
+  CARD_Artisan,
+  CARD_Bandit,
+  CARD_Bureaucrat,
+  CARD_Cellar,
+  CARD_Chapel,
+  CARD_CouncilRoom,
+  CARD_Festival,
+  CARD_Gardens,
+  CARD_Harbinger,
+  CARD_Laboratory,
+  CARD_Library,
+  CARD_Market,
+  CARD_Merchant,
+  CARD_Militia,
+  CARD_Mine,
+  CARD_Moat,
+  CARD_Moneylender,
+  CARD_Poacher,
+  CARD_Remodel,
+  CARD_Sentry,
+  CARD_Smithy,
+  CARD_ThroneRoom,
+  CARD_Vassal,
+  CARD_Village,
+  CARD_Witch,
+  CARD_Workshop
+};
 
 // Compact storage for card types (optional)
 enum class CardType : uint8_t {
-    TREASURE = 0,
-    ACTION   = 1,
-    VICTORY  = 2,
-    CURSE    = 3
+    TREASURE,
+    ACTION ,
+    VICTORY,
+    CURSE 
 };
 
 struct CardOptions {
@@ -25,7 +71,6 @@ struct CardOptions {
     std::optional<int> grant_action;
     std::optional<int> grant_draw;
     std::optional<int> grant_buy;
-    // Prefer smart pointer; optional is unnecessary for pointers
     std::shared_ptr<const EffectChain> effect;
 };
 
@@ -41,7 +86,6 @@ public:
     int grant_draw = 0;   // +Cards
     int grant_buy = 0;    // +Buys
 
-    // Use smart pointer if Card shares/owns effect chains
     std::shared_ptr<const EffectChain> effect;
 
     Card(std::string name_, std::vector<CardType> types_, int cost_=0, int value_=0, int vp_=0,
@@ -65,45 +109,20 @@ public:
         effect(opt.effect) {}
 
     static Card fromOptions(const CardOptions& opt) { return Card(opt); }
+
+    // Applies standard grants: +actions, +buys, +coins, +cards.
+    void play(DominionState& state, int player) const;
+    // Triggers any effect chains; used for interactive effects like Cellar.
+    void applyEffect(DominionState& state, int player) const;
 };
 
-// Map type with heterogeneous lookup (string_view/const char* finds are cheap)
-struct SvHash {
-    using is_transparent = void;
-    size_t operator()(std::string_view s) const noexcept { return std::hash<std::string_view>{}(s); }
-    size_t operator()(const std::string& s) const noexcept { return std::hash<std::string_view>{}(s); }
-    size_t operator()(const char* s) const noexcept { return std::hash<std::string_view>{}(s); }
-};
-using CardMap = std::unordered_map<std::string, Card, SvHash, std::equal_to<>>;
+const Card& GetCardSpec(CardName name);
 
-// Basic Supply Cards
-inline const CardMap& BasicCardsMap() {
-    static const CardMap basic_cards_dict{
-        {"Copper",   {"Copper",   {CardType::TREASURE}, 0, 1}},
-        {"Silver",   {"Silver",   {CardType::TREASURE}, 3, 2}},
-        {"Gold",     {"Gold",     {CardType::TREASURE}, 6, 3}},
-        {"Estate",   {"Estate",   {CardType::VICTORY},  2, 0, 1}},
-        {"Duchy",    {"Duchy",    {CardType::VICTORY},  5, 0, 3}},
-        {"Province", {"Province", {CardType::VICTORY},  8, 0, 6}}
-    };
-    return basic_cards_dict;
-}
+// Reusable card effect helpers
+bool HandlePendingEffectAction(DominionState& state, int player, Action action_id);
+std::vector<Action> PendingEffectLegalActions(const DominionState& state, int player);
 
-// All cards including basic supply cards
-inline const CardMap& CardsMap() {
-    static const CardMap cards_dict = [] {
-        CardMap m;
-        const auto& basic = BasicCardsMap();
-        m.reserve(basic.size() + 5);
-        m.insert(basic.begin(), basic.end());
+} // namespace dominion
+} // namespace open_spiel
 
-        // NOTE: Curse cost often modeled as 0 with negative VP; your -1 sentinel is fine if you handle it.
-        m.emplace("Curse",    Card{"Curse",    {CardType::CURSE},   0, 0, -1});
-        m.emplace("Village",  Card{"Village",  {CardType::ACTION},  3, 0, 0, 1, 2});
-        m.emplace("Smithy",   Card{"Smithy",   {CardType::ACTION},  4, 0, 0, 0, 3});
-        m.emplace("Market",   Card{"Market",   {CardType::ACTION},  5, 1, 0, 1, 1, 1});
-        m.emplace("Festival", Card{"Festival", {CardType::ACTION},  5, 2, 0, 2});
-        return m;
-    }();
-    return cards_dict;
-}
+#endif
