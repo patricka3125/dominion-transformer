@@ -1,2 +1,0 @@
-/usr/bin/ar qc libdominion_cpp_game.a CMakeFiles/dominion_cpp_game.dir/src/board_state.cpp.o CMakeFiles/dominion_cpp_game.dir/src/context.cpp.o CMakeFiles/dominion_cpp_game.dir/src/engine.cpp.o
-/usr/bin/ranlib libdominion_cpp_game.a

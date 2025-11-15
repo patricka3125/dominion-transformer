@@ -1,3 +1,0 @@
-/Users/bytedance/poe/dominion-transformer/game/CMakeFiles/dominion_cpp_game.dir
-/Users/bytedance/poe/dominion-transformer/game/CMakeFiles/edit_cache.dir
-/Users/bytedance/poe/dominion-transformer/game/CMakeFiles/rebuild_cache.dir
