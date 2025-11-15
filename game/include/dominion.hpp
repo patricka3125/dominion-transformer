@@ -4,6 +4,7 @@
 #include <array>
 #include <vector>
 #include <string>
+#include <memory>
 
 #include "cards.hpp"
 
@@ -34,7 +35,8 @@ enum class Phase {
 // Generic pending effect choice types.
 enum class PendingChoice {
   None,
-  ChooseDiscards,
+  SelectUpToCardsFromHand,
+  SelectUpToCardsFromBoard,
 };
 
 struct PlayerState {
@@ -43,7 +45,36 @@ struct PlayerState {
   std::vector<CardName> discard_;
   std::vector<Action> history_;
   PendingChoice pending_choice = PendingChoice::None;
-  int pending_discard_draw_count = 0;
+  int pending_discard_count = 0; // tracks discards selected during a discard effect
+  bool pending_draw_equals_discard = false; // whether finishing discard should draw equal to discards
+  int pending_gain_max_cost = 0;
+  std::unique_ptr<EffectNode> effect_head; // head of pending effect linked list
+
+  PlayerState() = default;
+  PlayerState(const PlayerState& other)
+      : deck_(other.deck_),
+        hand_(other.hand_),
+        discard_(other.discard_),
+        history_(other.history_),
+        pending_choice(other.pending_choice),
+        pending_discard_count(other.pending_discard_count),
+        pending_draw_equals_discard(other.pending_draw_equals_discard),
+        pending_gain_max_cost(other.pending_gain_max_cost) {
+    effect_head = other.effect_head ? other.effect_head->clone() : nullptr;
+  }
+  PlayerState& operator=(const PlayerState& other) {
+    if (this == &other) return *this;
+    deck_ = other.deck_;
+    hand_ = other.hand_;
+    discard_ = other.discard_;
+    history_ = other.history_;
+    pending_choice = other.pending_choice;
+    pending_discard_count = other.pending_discard_count;
+    pending_draw_equals_discard = other.pending_draw_equals_discard;
+    pending_gain_max_cost = other.pending_gain_max_cost;
+    effect_head = other.effect_head ? other.effect_head->clone() : nullptr;
+    return *this;
+  }
 };
 
 class DominionState : public State {
@@ -82,8 +113,10 @@ class DominionState : public State {
   std::array<PlayerState, kNumPlayers> player_states_{};
 
   friend class Card;
+  friend class EffectNode;
+  friend class SelectUpToCardsNode;
+  friend class SelectUpToCardsFromBoardNode;
   friend struct DominionTestHarness; // test-only accessor
-  friend bool HandlePendingEffectAction(DominionState& state, int player, Action action_id);
   friend std::vector<Action> PendingEffectLegalActions(const DominionState& state, int player);
 };
 

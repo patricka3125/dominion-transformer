@@ -26,6 +26,10 @@ namespace ActionIds {
   inline int DiscardSelectBase() { return 300; }
   inline Action DiscardSelect(int i) { return static_cast<Action>(DiscardSelectBase() + i); }
   inline Action DiscardFinish() { return static_cast<Action>(399); }
+
+  // Generic gain-from-supply selection actions (effect-level).
+  inline int GainSelectBase() { return 500; }
+  inline Action GainSelect(int j) { return static_cast<Action>(GainSelectBase() + j); }
 }
 
 // Human-readable names for action IDs. The caller provides the supply size

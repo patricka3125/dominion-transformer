@@ -22,6 +22,7 @@ struct DominionTestHarness {
   static int HandSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].hand_.size()); }
   static int PlayAreaSize(DominionState* s) { return static_cast<int>(s->play_area_.size()); }
   static int DiscardSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].discard_.size()); }
+  static int SupplyCount(DominionState* s, int j) { return s->supply_piles_[j]; }
 };
 } }
 
@@ -294,6 +295,35 @@ static void TestDiscardFinishVisibility() {
   }
 }
 
+static void TestWorkshopGain() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Workshop);
+  DominionTestHarness::SetPhase(ds, Phase::actionPhase);
+  int hand_before = DominionTestHarness::HandSize(ds, 0);
+  int discard_before = DominionTestHarness::DiscardSize(ds, 0);
+  int smithy_pile_before = DominionTestHarness::SupplyCount(ds, 13); // Smithy index
+
+  ds->ApplyAction(hand_before - 1); // play Workshop
+
+  // Find GainSelect for Smithy (index 13, cost 4) and apply it.
+  open_spiel::Action gain_smithy = -1;
+  for (auto a : ds->LegalActions()) {
+    if (ds->ActionToString(ds->CurrentPlayer(), a) == "GainSelect_13") {
+      gain_smithy = a;
+      break;
+    }
+  }
+  SPIEL_CHECK_TRUE(gain_smithy != -1);
+  ds->ApplyAction(gain_smithy);
+
+  SPIEL_CHECK_EQ(DominionTestHarness::DiscardSize(ds, 0), discard_before + 1);
+  SPIEL_CHECK_EQ(DominionTestHarness::SupplyCount(ds, 13), smithy_pile_before - 1);
+}
+
 int main() {
   TestMarket();
   TestVillage();
@@ -306,5 +336,6 @@ int main() {
   TestCellarOneDiscard();
   TestCellarThreeDiscards();
   TestDiscardFinishVisibility();
+  TestWorkshopGain();
   return 0;
 }
