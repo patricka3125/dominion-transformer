@@ -7,17 +7,30 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Configure OpenSpiel location in a portable way.
 # Users can set OPEN_SPIEL_ROOT via environment or -DOPEN_SPIEL_ROOT=...
-set(OPEN_SPIEL_ROOT $ENV{OPEN_SPIEL_ROOT})
-find_path(OPEN_SPIEL_INCLUDE_DIR spiel.h
+if (NOT DEFINED OPEN_SPIEL_ROOT)
+  set(OPEN_SPIEL_ROOT $ENV{OPEN_SPIEL_ROOT})
+endif()
+find_path(OPEN_SPIEL_INCLUDE_DIR open_spiel/spiel.h
   HINTS
     ${OPEN_SPIEL_ROOT}
-    ${OPEN_SPIEL_ROOT}/open_spiel
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../open_spiel/open_spiel
-    ${CMAKE_CURRENT_SOURCE_DIR}/../open_spiel/open_spiel
-  PATH_SUFFIXES open_spiel
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../open_spiel
+    ${CMAKE_CURRENT_SOURCE_DIR}/../open_spiel
 )
 if (NOT OPEN_SPIEL_INCLUDE_DIR)
   message(FATAL_ERROR "OpenSpiel headers not found. Please set OPEN_SPIEL_ROOT to your OpenSpiel clone (e.g., -DOPEN_SPIEL_ROOT=/path/to/open_spiel)")
+endif()
+
+# Normalize include dir to the repository root (which contains the open_spiel/ folder).
+if (EXISTS "${OPEN_SPIEL_ROOT}/open_spiel/spiel.h")
+  set(OPEN_SPIEL_INCLUDE_DIR ${OPEN_SPIEL_ROOT})
+elseif (EXISTS "${OPEN_SPIEL_INCLUDE_DIR}/open_spiel/spiel.h")
+  # OPEN_SPIEL_INCLUDE_DIR already points to the correct root.
+else()
+  # As a fallback, check one level up from a nested open_spiel path.
+  get_filename_component(_parent "${OPEN_SPIEL_INCLUDE_DIR}" DIRECTORY)
+  if (EXISTS "${_parent}/open_spiel/spiel.h")
+    set(OPEN_SPIEL_INCLUDE_DIR ${_parent})
+  endif()
 endif()
 
 # Abseil and JSON headers vendored under OpenSpiel tree.

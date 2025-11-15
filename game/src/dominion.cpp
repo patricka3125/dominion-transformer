@@ -60,7 +60,7 @@ int DominionGame::MaxGameLength() const { return 500; }
 
 namespace {
 static bool HasType(const Card& c, CardType t) {
-  return std::find(c.types.begin(), c.types.end(), t) != c.types.end();
+  return std::find(c.types_.begin(), c.types_.end(), t) != c.types_.end();
 }
 }
 
@@ -167,7 +167,7 @@ std::vector<Action> DominionState::LegalActions() const {
       for (int j = 0; j < kNumSupplyPiles; ++j) {
         if (supply_piles_[j] <= 0) continue;
         const Card& spec = GetCardSpec(supply_types_[j]);
-        if (coins_ >= spec.cost) actions.push_back(ActionIds::BuyFromSupply(j));
+        if (coins_ >= spec.cost_) actions.push_back(ActionIds::BuyFromSupply(j));
       }
     }
     actions.push_back(ActionIds::EndBuy());
@@ -228,7 +228,17 @@ std::unique_ptr<State> DominionState::Clone() const {
 // - Handles phase transitions: EndActions -> buyPhase; EndBuy -> cleanup + next turn.
 void DominionState::DoApplyAction(Action action_id) {
   auto& ps = player_states_[current_player_];
-  if (HandlePendingEffectAction(*this, current_player_, action_id)) return;
+  // If there is a pending effect node and it provides an action handler,
+  // delegate to it first.
+  if (ps.effect_head && ps.pending_choice != PendingChoice::None && ps.effect_head->on_action) {
+    bool consumed = ps.effect_head->on_action(*this, current_player_, action_id);
+    if (consumed) {
+      if (ps.pending_choice == PendingChoice::None && ps.effect_head) {
+        ps.effect_head = std::move(ps.effect_head->next);
+      }
+      return;
+    }
+  }
   if (phase_ == Phase::actionPhase) {
     if (action_id == ActionIds::EndActions()) {
       phase_ = Phase::buyPhase;
@@ -277,8 +287,8 @@ void DominionState::DoApplyAction(Action action_id) {
       int j = action_id - ActionIds::BuyBase();
       if (supply_piles_[j] > 0) {
         const Card& spec = GetCardSpec(supply_types_[j]);
-        if (coins_ >= spec.cost) {
-          coins_ -= spec.cost;
+        if (coins_ >= spec.cost_) {
+          coins_ -= spec.cost_;
           buys_1 -= 1;
           ps.discard_.push_back(supply_types_[j]);
           supply_piles_[j] -= 1;

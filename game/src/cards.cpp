@@ -53,52 +53,91 @@ const Card& GetCardSpec(CardName name) {
 }
 
 void Card::play(DominionState& state, int player) const {
-  state.actions_ += grant_action;
-  state.buys_1 += grant_buy;
-  state.coins_ += value;
-  state.DrawCardsFor(player, grant_draw);
+  state.actions_ += grant_action_;
+  state.buys_1 += grant_buy_;
+  state.coins_ += value_;
+  state.DrawCardsFor(player, grant_draw_);
 }
 
 void Card::applyEffect(DominionState& state, int player) const {
   // Trigger generic discard selection effect for cards like Cellar.
-  if (name == std::string("Cellar")) {
+  if (name_ == std::string("Cellar")) {
     auto& ps = state.player_states_[player];
-    ps.pending_choice = PendingChoice::ChooseDiscards;
-    ps.pending_discard_draw_count = 0;
+    ps.effect_head = std::unique_ptr<EffectNode>(new SelectUpToCardsNode(true));
+    ps.effect_head->onEnter(state, player);
+    // Cellar-specific selection handler: select any number of cards,
+    // finish to draw equal to number discarded.
+    ps.effect_head->on_action = [](DominionState& st, int pl, Action action_id) {
+      auto& p = st.player_states_[pl];
+      if (p.pending_choice != PendingChoice::SelectUpToCardsFromHand) return false;
+      if (action_id == ActionIds::DiscardFinish()) {
+        int draw_n = p.pending_draw_equals_discard ? p.pending_discard_count : 0;
+        st.DrawCardsFor(pl, draw_n);
+        p.pending_discard_count = 0;
+        p.pending_draw_equals_discard = false;
+        p.pending_choice = PendingChoice::None;
+        return true;
+      }
+      if (action_id >= ActionIds::DiscardSelectBase() && action_id < ActionIds::DiscardSelectBase() + static_cast<Action>(p.hand_.size())) {
+        int idx = static_cast<int>(action_id - ActionIds::DiscardSelectBase());
+        if (idx >= 0 && idx < static_cast<int>(p.hand_.size())) {
+          CardName cn = p.hand_[idx];
+          p.discard_.push_back(cn);
+          p.hand_.erase(p.hand_.begin() + idx);
+          p.pending_discard_count += 1;
+        }
+        return true;
+      }
+      return false;
+    };
+  }
+  // Trigger gain-from-supply effect for Workshop: gain a card costing up to 4.
+  if (name_ == std::string("Workshop")) {
+    auto& ps = state.player_states_[player];
+    ps.effect_head = std::unique_ptr<EffectNode>(new SelectUpToCardsFromBoardNode(4));
+    ps.effect_head->onEnter(state, player);
+    // Workshop-specific board selection handler: gain from supply up to max cost.
+    ps.effect_head->on_action = [](DominionState& st, int pl, Action action_id) {
+      auto& p = st.player_states_[pl];
+      if (p.pending_choice != PendingChoice::SelectUpToCardsFromBoard) return false;
+      if (action_id >= ActionIds::GainSelectBase() && action_id < ActionIds::GainSelectBase() + kNumSupplyPiles) {
+        int j = static_cast<int>(action_id - ActionIds::GainSelectBase());
+        if (j >= 0 && j < kNumSupplyPiles) {
+          if (st.supply_piles_[j] > 0) {
+            const Card& spec = GetCardSpec(st.supply_types_[j]);
+            if (spec.cost_ <= p.pending_gain_max_cost) {
+              st.player_states_[pl].discard_.push_back(st.supply_types_[j]);
+              st.supply_piles_[j] -= 1;
+              p.pending_choice = PendingChoice::None;
+              p.pending_gain_max_cost = 0;
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    };
   }
 }
 
-bool HandlePendingEffectAction(DominionState& state, int player, Action action_id) {
-  auto& ps = state.player_states_[player];
-  if (ps.pending_choice != PendingChoice::ChooseDiscards) return false;
-
-  if (action_id == ActionIds::DiscardFinish()) {
-    state.DrawCardsFor(player, ps.pending_discard_draw_count);
-    ps.pending_discard_draw_count = 0;
-    ps.pending_choice = PendingChoice::None;
-    return true;
-  }
-  if (action_id >= ActionIds::DiscardSelectBase() && action_id < ActionIds::DiscardSelectBase() + static_cast<Action>(ps.hand_.size())) {
-    int idx = static_cast<int>(action_id - ActionIds::DiscardSelectBase());
-    if (idx >= 0 && idx < static_cast<int>(ps.hand_.size())) {
-      CardName cn = ps.hand_[idx];
-      ps.discard_.push_back(cn);
-      ps.hand_.erase(ps.hand_.begin() + idx);
-      ps.pending_discard_draw_count += 1;
-    }
-    return true;
-  }
-  return false;
-}
 
 std::vector<Action> PendingEffectLegalActions(const DominionState& state, int player) {
   std::vector<Action> actions;
   const auto& ps = state.player_states_[player];
-  if (ps.pending_choice == PendingChoice::ChooseDiscards) {
+  if (ps.pending_choice == PendingChoice::SelectUpToCardsFromHand) {
     for (int i = 0; i < static_cast<int>(ps.hand_.size()) && i < 100; ++i) {
       actions.push_back(ActionIds::DiscardSelect(i));
     }
     actions.push_back(ActionIds::DiscardFinish());
+  }
+  if (ps.pending_choice == PendingChoice::SelectUpToCardsFromBoard) {
+    for (int j = 0; j < kNumSupplyPiles; ++j) {
+      if (state.supply_piles_[j] <= 0) continue;
+      const Card& spec = GetCardSpec(state.supply_types_[j]);
+      if (spec.cost_ <= ps.pending_gain_max_cost) {
+        actions.push_back(ActionIds::GainSelect(j));
+      }
+    }
   }
   std::sort(actions.begin(), actions.end());
   return actions;
@@ -106,3 +145,19 @@ std::vector<Action> PendingEffectLegalActions(const DominionState& state, int pl
 
 }  // namespace dominion
 }  // namespace open_spiel
+namespace {
+}
+
+namespace open_spiel { namespace dominion {
+void SelectUpToCardsNode::onEnter(DominionState& state, int player) {
+  auto& ps = state.player_states_[player];
+  ps.pending_choice = PendingChoice::SelectUpToCardsFromHand;
+  ps.pending_discard_count = 0;
+  ps.pending_draw_equals_discard = draw_equals_discard_;
+}
+void SelectUpToCardsFromBoardNode::onEnter(DominionState& state, int player) {
+  auto& ps = state.player_states_[player];
+  ps.pending_choice = PendingChoice::SelectUpToCardsFromBoard;
+  ps.pending_gain_max_cost = max_cost_;
+}
+} }

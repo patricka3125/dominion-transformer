@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <functional>
 #include <optional>
 
 #include "open_spiel/spiel.h"
@@ -14,6 +15,58 @@ namespace dominion {
 class DominionState;
 
 class EffectChain;
+
+// Effect processing nodes: a lightweight linked-list of pending effects
+// attached to a player. Each node may set up player state and, if needed,
+// enqueue a follow-up node via its `next` pointer.
+class EffectNode {
+public:
+  virtual ~EffectNode() = default;
+  // Called when the effect is appended to a player; responsible for
+  // initializing any player-level pending choice state.
+  virtual void onEnter(DominionState& state, int player) {}
+  std::unique_ptr<EffectNode> next;
+  // Polymorphic deep copy of the effect chain.
+  virtual std::unique_ptr<EffectNode> clone() const = 0;
+  // Optional callback that handles actions while this effect is pending.
+  // Returns true if the action was consumed.
+  std::function<bool(DominionState&, int, Action)> on_action;
+};
+
+// Select up to any number of cards from hand. Optionally draw an equal
+// number after finishing the selection.
+class SelectUpToCardsNode : public EffectNode {
+public:
+  explicit SelectUpToCardsNode(bool draw_equals_discard)
+      : draw_equals_discard_(draw_equals_discard) {}
+  void onEnter(DominionState& state, int player) override;
+  std::unique_ptr<EffectNode> clone() const override {
+    auto n = std::unique_ptr<SelectUpToCardsNode>(new SelectUpToCardsNode(draw_equals_discard_));
+    if (next) n->next = next->clone();
+    n->on_action = on_action;
+    return std::unique_ptr<EffectNode>(std::move(n));
+  }
+private:
+  bool draw_equals_discard_ = false;
+};
+
+// Select from board (supply piles) up to a cost cap; puts the selected
+// card into the player's discard and decrements the supply. No extra
+// user input beyond the selection itself.
+class SelectUpToCardsFromBoardNode : public EffectNode {
+public:
+  explicit SelectUpToCardsFromBoardNode(int max_cost)
+      : max_cost_(max_cost) {}
+  void onEnter(DominionState& state, int player) override;
+  std::unique_ptr<EffectNode> clone() const override {
+    auto n = std::unique_ptr<SelectUpToCardsFromBoardNode>(new SelectUpToCardsFromBoardNode(max_cost_));
+    if (next) n->next = next->clone();
+    n->on_action = on_action;
+    return std::unique_ptr<EffectNode>(std::move(n));
+  }
+private:
+  int max_cost_ = 0;
+};
 
 enum class CardName {
   // Basic supply cards
@@ -76,36 +129,36 @@ struct CardOptions {
 
 class Card {
 public:
-    std::string name;
-    std::vector<CardType> types;
-    int cost = 0;
-    int value = 0;
-    int vp = 0;
+    std::string name_;
+    std::vector<CardType> types_;
+    int cost_ = 0;
+    int value_ = 0;
+    int vp_ = 0;
 
-    int grant_action = 0; // +Actions
-    int grant_draw = 0;   // +Cards
-    int grant_buy = 0;    // +Buys
+    int grant_action_ = 0; // +Actions
+    int grant_draw_ = 0;   // +Cards
+    int grant_buy_ = 0;    // +Buys
 
     std::shared_ptr<const EffectChain> effect;
 
     Card(std::string name_, std::vector<CardType> types_, int cost_=0, int value_=0, int vp_=0,
          int grant_action_ = 0, int grant_draw_ = 0, int grant_buy_ = 0,
          std::shared_ptr<const EffectChain> effect_ = nullptr)
-      : name(std::move(name_)),
-        types(std::move(types_)),
-        cost(cost_), value(value_), vp(vp_),
-        grant_action(grant_action_), grant_draw(grant_draw_), grant_buy(grant_buy_),
+      : name_(std::move(name_)),
+        types_(std::move(types_)),
+        cost_(cost_), value_(value_), vp_(vp_),
+        grant_action_(grant_action_), grant_draw_(grant_draw_), grant_buy_(grant_buy_),
         effect(std::move(effect_)) {}
 
     Card(const CardOptions& opt)
-      : name(opt.name),
-        types(opt.types),
-        cost(opt.cost.value_or(0)),
-        value(opt.value.value_or(0)),
-        vp(opt.vp.value_or(0)),
-        grant_action(opt.grant_action.value_or(0)),
-        grant_draw(opt.grant_draw.value_or(0)),
-        grant_buy(opt.grant_buy.value_or(0)),
+      : name_(opt.name),
+        types_(opt.types),
+        cost_(opt.cost.value_or(0)),
+        value_(opt.value.value_or(0)),
+        vp_(opt.vp.value_or(0)),
+        grant_action_(opt.grant_action.value_or(0)),
+        grant_draw_(opt.grant_draw.value_or(0)),
+        grant_buy_(opt.grant_buy.value_or(0)),
         effect(opt.effect) {}
 
     static Card fromOptions(const CardOptions& opt) { return Card(opt); }
@@ -118,8 +171,6 @@ public:
 
 const Card& GetCardSpec(CardName name);
 
-// Reusable card effect helpers
-bool HandlePendingEffectAction(DominionState& state, int player, Action action_id);
 std::vector<Action> PendingEffectLegalActions(const DominionState& state, int player);
 
 } // namespace dominion
