@@ -1,0 +1,10 @@
+.cache
+CMakeCache.txt
+CMakeFiles
+*.cmake
+compile_commands.json
+*_test
+*.a
+*.tar.gz
+
+Makefile
