@@ -48,6 +48,10 @@ struct PlayerState {
   int pending_discard_count = 0; // tracks discards selected during a discard effect
   bool pending_draw_equals_discard = false; // whether finishing discard should draw equal to discards
   int pending_gain_max_cost = 0;
+  // Stable-index selection support for ascending-order constraint during discard effects.
+  // Maps current hand indices to original indices at effect start; updated on selection.
+  std::vector<int> pending_hand_original_indices;
+  int pending_last_selected_original_index = -1;
   std::unique_ptr<EffectNode> effect_head; // head of pending effect linked list
 
   PlayerState() = default;
@@ -59,7 +63,9 @@ struct PlayerState {
         pending_choice(other.pending_choice),
         pending_discard_count(other.pending_discard_count),
         pending_draw_equals_discard(other.pending_draw_equals_discard),
-        pending_gain_max_cost(other.pending_gain_max_cost) {
+        pending_gain_max_cost(other.pending_gain_max_cost),
+        pending_hand_original_indices(other.pending_hand_original_indices),
+        pending_last_selected_original_index(other.pending_last_selected_original_index) {
     effect_head = other.effect_head ? other.effect_head->clone() : nullptr;
   }
   PlayerState& operator=(const PlayerState& other) {
@@ -72,9 +78,42 @@ struct PlayerState {
     pending_discard_count = other.pending_discard_count;
     pending_draw_equals_discard = other.pending_draw_equals_discard;
     pending_gain_max_cost = other.pending_gain_max_cost;
+    pending_hand_original_indices = other.pending_hand_original_indices;
+    pending_last_selected_original_index = other.pending_last_selected_original_index;
     effect_head = other.effect_head ? other.effect_head->clone() : nullptr;
     return *this;
   }
+
+  // Initialize discard selection metadata for ascending-order subset selection.
+  void InitDiscardSelection(bool draw_equals_discard) {
+    pending_choice = PendingChoice::SelectUpToCardsFromHand;
+    pending_discard_count = 0;
+    pending_draw_equals_discard = draw_equals_discard;
+    pending_hand_original_indices.clear();
+    pending_last_selected_original_index = -1;
+    pending_hand_original_indices.reserve(static_cast<int>(hand_.size()));
+    for (int i = 0; i < static_cast<int>(hand_.size()); ++i) {
+      pending_hand_original_indices.push_back(i);
+    }
+  }
+
+  // Clear discard selection metadata after finishing the effect.
+  void ClearDiscardSelection() {
+    pending_discard_count = 0;
+    pending_draw_equals_discard = false;
+    pending_hand_original_indices.clear();
+    pending_last_selected_original_index = -1;
+  }
+
+  // Generic helpers for select-up-to effects.
+  void InitHandSelection(bool draw_equals_discard) { InitDiscardSelection(draw_equals_discard); }
+  void ClearHandSelection() { ClearDiscardSelection(); }
+
+  void InitBoardSelection(int max_cost) {
+    pending_choice = PendingChoice::SelectUpToCardsFromBoard;
+    pending_gain_max_cost = max_cost;
+  }
+  void ClearBoardSelection() { pending_gain_max_cost = 0; }
 };
 
 class DominionState : public State {

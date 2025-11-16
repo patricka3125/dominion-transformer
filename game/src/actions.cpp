@@ -19,9 +19,9 @@ std::string ActionNames::Name(Action action_id, int num_supply_piles) {
 
   // Finish must be recognized before the generic select range, since 399
   // overlaps the select range upper bound.
-  if (action_id == DiscardFinish()) return "DiscardFinish";
-  if (action_id >= DiscardSelectBase() && action_id < DiscardSelectBase() + 100) {
-    return std::string("DiscardSelect_") + std::to_string(action_id - DiscardSelectBase());
+  if (action_id == HandSelectFinish()) return "HandSelectFinish";
+  if (action_id >= HandSelectBase() && action_id < HandSelectBase() + 100) {
+    return std::string("HandSelect_") + std::to_string(action_id - HandSelectBase());
   }
 
   if (action_id >= GainSelectBase() && action_id < GainSelectBase() + num_supply_piles) {

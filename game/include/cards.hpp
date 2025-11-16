@@ -167,6 +167,11 @@ public:
     void play(DominionState& state, int player) const;
     // Triggers any effect chains; used for interactive effects like Cellar.
     void applyEffect(DominionState& state, int player) const;
+
+    // Helper handlers for effect chains.
+    static bool GainFromBoardHandler(DominionState& state, int player, Action action_id);
+    static bool RemodelTrashFromHand(DominionState& state, int player, Action action_id);
+    static bool CellarHandSelectHandler(DominionState& state, int player, Action action_id);
 };
 
 const Card& GetCardSpec(CardName name);

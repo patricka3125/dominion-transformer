@@ -187,8 +187,8 @@ static void TestCellarActionStrings() {
   bool has_select0 = false;
   for (auto a : actions) {
     auto s = ds->ActionToString(ds->CurrentPlayer(), a);
-    if (s == "DiscardFinish") has_finish = true;
-    if (s == "DiscardSelect_0") has_select0 = true;
+    if (s == "HandSelectFinish") has_finish = true;
+    if (s == "HandSelect_0") has_select0 = true;
   }
   SPIEL_CHECK_TRUE(has_finish);
   SPIEL_CHECK_TRUE(has_select0);
@@ -253,7 +253,7 @@ static void TestDiscardFinishVisibility() {
     auto actions = ds->LegalActions();
     bool has_finish = false;
     for (auto a : actions) {
-      if (ds->ActionToString(ds->CurrentPlayer(), a) == "DiscardFinish") {
+      if (ds->ActionToString(ds->CurrentPlayer(), a) == "HandSelectFinish") {
         has_finish = true;
         break;
       }
@@ -272,7 +272,7 @@ static void TestDiscardFinishVisibility() {
   {
     auto actions = ds->LegalActions();
     for (auto a : actions) {
-      if (ds->ActionToString(ds->CurrentPlayer(), a) == "DiscardFinish") {
+      if (ds->ActionToString(ds->CurrentPlayer(), a) == "HandSelectFinish") {
         finish_id = a;
         break;
       }
@@ -286,7 +286,7 @@ static void TestDiscardFinishVisibility() {
     auto actions = ds->LegalActions();
     bool has_finish = false;
     for (auto a : actions) {
-      if (ds->ActionToString(ds->CurrentPlayer(), a) == "DiscardFinish") {
+      if (ds->ActionToString(ds->CurrentPlayer(), a) == "HandSelectFinish") {
         has_finish = true;
         break;
       }
@@ -324,6 +324,43 @@ static void TestWorkshopGain() {
   SPIEL_CHECK_EQ(DominionTestHarness::SupplyCount(ds, 13), smithy_pile_before - 1);
 }
 
+static void TestRemodelTrashThenGain() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  // Ensure a known trash target (Estate, cost 2) is in hand.
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Estate);
+  // Add Remodel last so it is played.
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Remodel);
+  DominionTestHarness::SetPhase(ds, Phase::actionPhase);
+  int hand_before = DominionTestHarness::HandSize(ds, 0);
+  int discard_before = DominionTestHarness::DiscardSize(ds, 0);
+  int smithy_pile_before = DominionTestHarness::SupplyCount(ds, 13);
+
+  // Play Remodel (last card in hand).
+  ds->ApplyAction(hand_before - 1);
+
+  // Trash the previously appended Estate (now last card in hand).
+  int hand_after_play = DominionTestHarness::HandSize(ds, 0);
+  ds->ApplyAction(300 + (hand_after_play - 1));
+
+  // Gain a Smithy (cost 4 <= 2 + 2) via board selection.
+  open_spiel::Action gain_smithy = -1;
+  for (auto a : ds->LegalActions()) {
+    if (ds->ActionToString(ds->CurrentPlayer(), a) == "GainSelect_13") {
+      gain_smithy = a;
+      break;
+    }
+  }
+  SPIEL_CHECK_TRUE(gain_smithy != -1);
+  ds->ApplyAction(gain_smithy);
+
+  SPIEL_CHECK_EQ(DominionTestHarness::DiscardSize(ds, 0), discard_before + 1);
+  SPIEL_CHECK_EQ(DominionTestHarness::SupplyCount(ds, 13), smithy_pile_before - 1);
+}
+
 int main() {
   TestMarket();
   TestVillage();
@@ -337,5 +374,6 @@ int main() {
   TestCellarThreeDiscards();
   TestDiscardFinishVisibility();
   TestWorkshopGain();
+  TestRemodelTrashThenGain();
   return 0;
 }

@@ -22,10 +22,10 @@ namespace ActionIds {
   inline Action EndActions() { return static_cast<Action>(200); }
   inline Action EndBuy() { return static_cast<Action>(201); }
 
-  // Generic discard selection effect actions.
-  inline int DiscardSelectBase() { return 300; }
-  inline Action DiscardSelect(int i) { return static_cast<Action>(DiscardSelectBase() + i); }
-  inline Action DiscardFinish() { return static_cast<Action>(399); }
+  // Generic hand selection effect actions.
+  inline int HandSelectBase() { return 300; }
+  inline Action HandSelect(int i) { return static_cast<Action>(HandSelectBase() + i); }
+  inline Action HandSelectFinish() { return static_cast<Action>(399); }
 
   // Generic gain-from-supply selection actions (effect-level).
   inline int GainSelectBase() { return 500; }
