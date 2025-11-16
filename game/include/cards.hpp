@@ -112,7 +112,8 @@ enum class CardType : uint8_t {
     TREASURE,
     ACTION ,
     VICTORY,
-    CURSE 
+    CURSE,
+    ATTACK
 };
 
 struct CardOptions {
@@ -130,6 +131,7 @@ struct CardOptions {
 class Card {
 public:
     std::string name_;
+    CardName kind_;
     std::vector<CardType> types_;
     int cost_ = 0;
     int value_ = 0;
@@ -141,10 +143,11 @@ public:
 
     std::shared_ptr<const EffectChain> effect;
 
-    Card(std::string name_, std::vector<CardType> types_, int cost_=0, int value_=0, int vp_=0,
+    Card(CardName kind_, std::string name_, std::vector<CardType> types_, int cost_=0, int value_=0, int vp_=0,
          int grant_action_ = 0, int grant_draw_ = 0, int grant_buy_ = 0,
          std::shared_ptr<const EffectChain> effect_ = nullptr)
-      : name_(std::move(name_)),
+      : kind_(kind_),
+        name_(std::move(name_)),
         types_(std::move(types_)),
         cost_(cost_), value_(value_), vp_(vp_),
         grant_action_(grant_action_), grant_draw_(grant_draw_), grant_buy_(grant_buy_),
@@ -172,6 +175,24 @@ public:
     static bool GainFromBoardHandler(DominionState& state, int player, Action action_id);
     static bool RemodelTrashFromHand(DominionState& state, int player, Action action_id);
     static bool CellarHandSelectHandler(DominionState& state, int player, Action action_id);
+    static bool ChapelHandTrashHandler(DominionState& state, int player, Action action_id);
+    static bool MilitiaOpponentDiscardHandler(DominionState& state, int player, Action action_id);
+    static void WitchAttackGiveCurse(DominionState& state, int player);
+    static bool ThroneRoomSelectActionHandler(DominionState& state, int player, Action action_id);
+
+    // Generic helper to collapse repeated hand-selection logic (ascending original index).
+    // - allow_finish: whether HandSelectFinish is a legal action to end early
+    // - max_select_count: if >= 0, auto-finish after this many selections
+    // - finish_on_target_hand_size: if true, finish when hand size <= pending_target_hand_size
+    // - on_select: callback invoked with current index to perform per-card effects (e.g., discard/trash)
+    // - on_finish: callback invoked upon finishing (e.g., Cellar draws equal to discards)
+    static bool GenericHandSelectionHandler(
+        DominionState& state, int player, Action action_id,
+        bool allow_finish,
+        int max_select_count,
+        bool finish_on_target_hand_size,
+        const std::function<void(DominionState&, int, int)>& on_select,
+        const std::function<void(DominionState&, int)>& on_finish);
 };
 
 const Card& GetCardSpec(CardName name);

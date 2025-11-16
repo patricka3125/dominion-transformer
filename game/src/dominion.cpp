@@ -66,9 +66,9 @@ static bool HasType(const Card& c, CardType t) {
 
 void DominionState::DrawCardsFor(int player, int n) {
   auto& ps = player_states_[player];
+  // Shuffle discard into deck when deck is empty; use state RNG for determinism.
   auto shuffle_vec = [&](std::vector<CardName>& v) {
-    std::mt19937 gen(static_cast<unsigned>(std::random_device{}()));
-    std::shuffle(v.begin(), v.end(), gen);
+    std::shuffle(v.begin(), v.end(), rng_);
   };
   for (int i = 0; i < n; ++i) {
     if (ps.deck_.empty()) {
@@ -84,6 +84,8 @@ void DominionState::DrawCardsFor(int player, int n) {
 
 DominionState::DominionState(std::shared_ptr<const Game> game)
     : State(game) {
+  // Initialize RNG with a fixed seed for reproducible runs; can be parameterized later.
+  rng_.seed(0u);
   // Supply types: base and kingdom piles
   supply_types_[0] = CardName::CARD_Copper;
   supply_types_[1] = CardName::CARD_Silver;
@@ -122,8 +124,7 @@ DominionState::DominionState(std::shared_ptr<const Game> game)
     for (int i = 0; i < 7; ++i) ps.deck_.push_back(CardName::CARD_Copper);
     for (int i = 0; i < 3; ++i) ps.deck_.push_back(CardName::CARD_Estate);
     {
-      std::mt19937 gen(static_cast<unsigned>(std::random_device{}()));
-      std::shuffle(ps.deck_.begin(), ps.deck_.end(), gen);
+      std::shuffle(ps.deck_.begin(), ps.deck_.end(), rng_);
     }
     DrawCardsFor(p, 5);
   }
@@ -235,6 +236,25 @@ void DominionState::DoApplyAction(Action action_id) {
     if (consumed) {
       if (ps.pending_choice == PendingChoice::None && ps.effect_head) {
         ps.effect_head = std::move(ps.effect_head->next);
+      }
+      // After advancing the effect chain, process any pending Throne Room replays.
+      while (ps.pending_choice == PendingChoice::None && !ps.effect_head && !ps.pending_throne_replay_stack.empty()) {
+        CardName to_replay = ps.pending_throne_replay_stack.back();
+        ps.pending_throne_replay_stack.pop_back();
+        const Card& spec = GetCardSpec(to_replay);
+        // Throne Room replay: apply standard grants and the card effect,
+        // without removing from hand, moving to play area, or consuming an action.
+        spec.play(*this, current_player_);
+        spec.applyEffect(*this, current_player_);
+        // If this creates a pending effect (e.g., Throne Room selection), break to let it resolve.
+        if (ps.effect_head) {
+          // If we just replayed a Throne card and need to schedule its second play, do so now.
+          if (to_replay == CardName::CARD_ThroneRoom && ps.pending_throne_schedule_second_for.has_value() && ps.pending_throne_schedule_second_for.value() == to_replay) {
+            ps.pending_throne_replay_stack.push_back(to_replay);
+            ps.pending_throne_schedule_second_for.reset();
+          }
+          break;
+        }
       }
       return;
     }

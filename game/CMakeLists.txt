@@ -94,6 +94,23 @@ if (OPEN_SPIEL_LIB)
   if (JSON_INCLUDE_DIR)
     target_include_directories(dominion_cards_test PUBLIC ${JSON_INCLUDE_DIR})
   endif()
+  add_executable(dominion_test
+      src/dominion_test.cpp
+  )
+  target_link_libraries(dominion_test
+      dominion_cpp_game
+      ${OPEN_SPIEL_LIB}
+  )
+  target_include_directories(dominion_test PUBLIC
+      ${CMAKE_CURRENT_SOURCE_DIR}/include
+      ${OPEN_SPIEL_INCLUDE_DIR}
+  )
+  if (ABSL_INCLUDE_DIR)
+    target_include_directories(dominion_test PUBLIC ${ABSL_INCLUDE_DIR})
+  endif()
+  if (JSON_INCLUDE_DIR)
+    target_include_directories(dominion_test PUBLIC ${JSON_INCLUDE_DIR})
+  endif()
 else()
   message(WARNING "OpenSpiel library not found. Provide -DOPEN_SPIEL_ROOT or ensure it is discoverable. Skipping test target.")
 endif()

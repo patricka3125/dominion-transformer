@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <random>
 
 #include "cards.hpp"
 
@@ -48,6 +49,10 @@ struct PlayerState {
   int pending_discard_count = 0; // tracks discards selected during a discard effect
   bool pending_draw_equals_discard = false; // whether finishing discard should draw equal to discards
   int pending_gain_max_cost = 0;
+  int pending_target_hand_size = 0; // if > 0, force discard until reaching this hand size
+  bool pending_select_only_action = false; // if true, only action cards are valid selections
+  std::vector<CardName> pending_throne_replay_stack; // LIFO stack of cards to replay (play+effect)
+  std::optional<CardName> pending_throne_schedule_second_for; // when set for a Throne card, schedule one more replay
   // Stable-index selection support for ascending-order constraint during discard effects.
   // Maps current hand indices to original indices at effect start; updated on selection.
   std::vector<int> pending_hand_original_indices;
@@ -64,8 +69,12 @@ struct PlayerState {
         pending_discard_count(other.pending_discard_count),
         pending_draw_equals_discard(other.pending_draw_equals_discard),
         pending_gain_max_cost(other.pending_gain_max_cost),
+        pending_target_hand_size(other.pending_target_hand_size),
         pending_hand_original_indices(other.pending_hand_original_indices),
-        pending_last_selected_original_index(other.pending_last_selected_original_index) {
+        pending_last_selected_original_index(other.pending_last_selected_original_index),
+        pending_select_only_action(other.pending_select_only_action),
+        pending_throne_replay_stack(other.pending_throne_replay_stack),
+        pending_throne_schedule_second_for(other.pending_throne_schedule_second_for) {
     effect_head = other.effect_head ? other.effect_head->clone() : nullptr;
   }
   PlayerState& operator=(const PlayerState& other) {
@@ -78,8 +87,12 @@ struct PlayerState {
     pending_discard_count = other.pending_discard_count;
     pending_draw_equals_discard = other.pending_draw_equals_discard;
     pending_gain_max_cost = other.pending_gain_max_cost;
+    pending_target_hand_size = other.pending_target_hand_size;
     pending_hand_original_indices = other.pending_hand_original_indices;
     pending_last_selected_original_index = other.pending_last_selected_original_index;
+    pending_select_only_action = other.pending_select_only_action;
+    pending_throne_replay_stack = other.pending_throne_replay_stack;
+    pending_throne_schedule_second_for = other.pending_throne_schedule_second_for;
     effect_head = other.effect_head ? other.effect_head->clone() : nullptr;
     return *this;
   }
@@ -103,6 +116,8 @@ struct PlayerState {
     pending_draw_equals_discard = false;
     pending_hand_original_indices.clear();
     pending_last_selected_original_index = -1;
+    pending_target_hand_size = 0;
+    pending_select_only_action = false;
   }
 
   // Generic helpers for select-up-to effects.
@@ -129,7 +144,7 @@ class DominionState : public State {
   std::unique_ptr<State> Clone() const override;
 
   // Draw n cards for player, shuffling discard into deck when needed.
-  void DrawCardsFor(int player, int n);
+ void DrawCardsFor(int player, int n);
 
  protected:
   // Applies the given action_id for the current player.
@@ -150,6 +165,8 @@ class DominionState : public State {
   std::array<CardName, kNumSupplyPiles> supply_types_{}; // type per pile
   std::vector<CardName> play_area_{};
   std::array<PlayerState, kNumPlayers> player_states_{};
+  // Single RNG instance per state to ensure reproducible and efficient shuffles.
+  std::mt19937 rng_{};
 
   friend class Card;
   friend class EffectNode;
