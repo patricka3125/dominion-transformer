@@ -16,7 +16,7 @@ const GameType kGameType{
     "dominion",
     "Dominion (Base)",
     GameType::Dynamics::kSequential,
-    GameType::ChanceMode::kSampledStochastic,
+    GameType::ChanceMode::kDeterministic,
     GameType::Information::kImperfectInformation,
     GameType::Utility::kGeneralSum,
     GameType::RewardModel::kTerminal,
