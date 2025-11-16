@@ -138,6 +138,8 @@ class DominionState : public State {
   Player CurrentPlayer() const override;
   std::vector<Action> LegalActions() const override;
   std::string ActionToString(Player player, Action action_id) const override;
+  std::string ObservationString(int player) const override;
+  std::string InformationStateString(int player) const override;
   std::string ToString() const override;
   bool IsTerminal() const override;
   std::vector<double> Returns() const override;
@@ -165,8 +167,6 @@ class DominionState : public State {
   std::array<CardName, kNumSupplyPiles> supply_types_{}; // type per pile
   std::vector<CardName> play_area_{};
   std::array<PlayerState, kNumPlayers> player_states_{};
-  // Single RNG instance per state to ensure reproducible and efficient shuffles.
-  std::mt19937 rng_{};
 
   friend class Card;
   friend class EffectNode;
@@ -188,6 +188,13 @@ class DominionGame : public Game {
   std::vector<int> InformationStateTensorShape() const override;
   std::vector<int> ObservationTensorShape() const override;
   int MaxGameLength() const override;
+  std::string GetRNGState() const override;
+  void SetRNGState(const std::string& rng_state) const override;
+
+  std::mt19937* rng() const { return &rng_; }
+ private:
+  mutable int rng_seed_ = 0;
+  mutable std::mt19937 rng_{};
 };
 }  // namespace dominion
 }  // namespace open_spiel

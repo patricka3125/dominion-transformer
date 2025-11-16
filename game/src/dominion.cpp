@@ -26,7 +26,7 @@ const GameType kGameType{
     /*provides_information_state_tensor=*/false,
     /*provides_observation_string=*/true,
     /*provides_observation_tensor=*/false,
-    /*parameter_specification=*/{}
+    /*parameter_specification=*/{{"rng_seed", GameParameter(0)}}
 };
 
 std::shared_ptr<const Game> Factory(const GameParameters& params) {
@@ -38,7 +38,11 @@ REGISTER_SPIEL_GAME(kGameType, Factory);
 }  // namespace
 
 DominionGame::DominionGame(const GameParameters& params)
-    : Game(kGameType, params) {}
+    : Game(kGameType, params) {
+  // Seed the game's RNG from the parameter for reproducibility across runs.
+  rng_seed_ = ParameterValue<int>("rng_seed");
+  rng_.seed(static_cast<unsigned>(rng_seed_));
+}
 
 int DominionGame::NumDistinctActions() const { return kDominionMaxDistinctActions; }
 
@@ -58,6 +62,20 @@ std::vector<int> DominionGame::ObservationTensorShape() const { return {}; }
 
 int DominionGame::MaxGameLength() const { return 500; }
 
+std::string DominionGame::GetRNGState() const {
+  // Serialize the RNG so Game::Serialize captures deterministic randomness.
+  std::ostringstream oss;
+  oss << rng_;
+  return oss.str();
+}
+
+void DominionGame::SetRNGState(const std::string& rng_state) const {
+  // Restore RNG from a serialized string to reproduce stochastic outcomes.
+  if (rng_state.empty()) return;
+  std::istringstream iss(rng_state);
+  iss >> rng_;
+}
+
 namespace {
 static bool HasType(const Card& c, CardType t) {
   return std::find(c.types_.begin(), c.types_.end(), t) != c.types_.end();
@@ -66,9 +84,11 @@ static bool HasType(const Card& c, CardType t) {
 
 void DominionState::DrawCardsFor(int player, int n) {
   auto& ps = player_states_[player];
-  // Shuffle discard into deck when deck is empty; use state RNG for determinism.
+  // Shuffle discard into deck when deck is empty; use game RNG for determinism.
+  const auto* dom_game = dynamic_cast<const DominionGame*>(game_.get());
+  std::mt19937* rng = dom_game ? dom_game->rng() : nullptr;
   auto shuffle_vec = [&](std::vector<CardName>& v) {
-    std::shuffle(v.begin(), v.end(), rng_);
+    if (rng) std::shuffle(v.begin(), v.end(), *rng);
   };
   for (int i = 0; i < n; ++i) {
     if (ps.deck_.empty()) {
@@ -84,8 +104,9 @@ void DominionState::DrawCardsFor(int player, int n) {
 
 DominionState::DominionState(std::shared_ptr<const Game> game)
     : State(game) {
-  // Initialize RNG with a fixed seed for reproducible runs; can be parameterized later.
-  rng_.seed(0u);
+  // Shuffle initial decks using game RNG for reproducibility.
+  const auto* dom_game = dynamic_cast<const DominionGame*>(game_.get());
+  std::mt19937* rng = dom_game ? dom_game->rng() : nullptr;
   // Supply types: base and kingdom piles
   supply_types_[0] = CardName::CARD_Copper;
   supply_types_[1] = CardName::CARD_Silver;
@@ -123,8 +144,8 @@ DominionState::DominionState(std::shared_ptr<const Game> game)
     ps.hand_.clear();
     for (int i = 0; i < 7; ++i) ps.deck_.push_back(CardName::CARD_Copper);
     for (int i = 0; i < 3; ++i) ps.deck_.push_back(CardName::CARD_Estate);
-    {
-      std::shuffle(ps.deck_.begin(), ps.deck_.end(), rng_);
+    if (rng) {
+      std::shuffle(ps.deck_.begin(), ps.deck_.end(), *rng);
     }
     DrawCardsFor(p, 5);
   }
@@ -179,6 +200,64 @@ std::vector<Action> DominionState::LegalActions() const {
 
 std::string DominionState::ActionToString(Player /*player*/, Action action_id) const {
   return ActionNames::Name(action_id, kNumSupplyPiles);
+}
+
+// Per-player observation string: only include public info and the player's own privates.
+std::string DominionState::ObservationString(int player) const {
+  const auto& ps_me = player_states_[player];
+  const auto& ps_opp = player_states_[1 - player];
+  auto card_name = [](CardName cn) { return GetCardSpec(cn).name_; };
+
+  std::string s;
+  s += std::string("Player: ") + std::to_string(player) + "\n";
+  s += std::string("Phase: ") + (phase_ == Phase::actionPhase ? "Action" : "Buy") + "\n";
+  s += std::string("Actions: ") + std::to_string(actions_) + "\n";
+  s += std::string("Buys: ") + std::to_string(buys_1) + "\n";
+  s += std::string("Coins: ") + std::to_string(coins_) + "\n";
+
+  // Show only this player's hand contents; deck and discard sizes only.
+  s += "Hand: ";
+  for (size_t i = 0; i < ps_me.hand_.size(); ++i) {
+    if (i) s += " ";
+    s += card_name(ps_me.hand_[i]);
+  }
+  s += "\n";
+  s += std::string("DeckSize: ") + std::to_string(ps_me.deck_.size()) + "\n";
+  s += std::string("DiscardSize: ") + std::to_string(ps_me.discard_.size()) + "\n";
+
+  // Opponent privates are hidden; expose sizes only.
+  s += std::string("OpponentHandSize: ") + std::to_string(ps_opp.hand_.size()) + "\n";
+  s += std::string("OpponentDeckSize: ") + std::to_string(ps_opp.deck_.size()) + "\n";
+  s += std::string("OpponentDiscardSize: ") + std::to_string(ps_opp.discard_.size()) + "\n";
+
+  // Public supply counts.
+  s += "SupplyCounts: ";
+  for (int i = 0; i < kNumSupplyPiles; ++i) {
+    if (i) s += ",";
+    s += std::to_string(supply_piles_[i]);
+  }
+  s += "\n";
+
+  // Public play area.
+  s += "PlayArea: ";
+  for (size_t i = 0; i < play_area_.size(); ++i) {
+    if (i) s += " ";
+    s += card_name(play_area_[i]);
+  }
+  return s;
+}
+
+// Information state string: perfect recall view for the player.
+// Include public info and the player's private info plus full public history.
+std::string DominionState::InformationStateString(int player) const {
+  std::string s = ObservationString(player);
+  s += "History: ";
+  const auto h = History();
+  for (size_t i = 0; i < h.size(); ++i) {
+    if (i) s += ",";
+    s += std::to_string(static_cast<int>(h[i]));
+  }
+  return s;
 }
 
 std::string DominionState::ToString() const {
@@ -237,6 +316,7 @@ void DominionState::DoApplyAction(Action action_id) {
       if (ps.pending_choice == PendingChoice::None && ps.effect_head) {
         ps.effect_head = std::move(ps.effect_head->next);
       }
+
       // After advancing the effect chain, process any pending Throne Room replays.
       while (ps.pending_choice == PendingChoice::None && !ps.effect_head && !ps.pending_throne_replay_stack.empty()) {
         CardName to_replay = ps.pending_throne_replay_stack.back();
