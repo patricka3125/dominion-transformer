@@ -162,6 +162,7 @@ class DominionState : public State {
   int buys_1 = 1;
   int money_0 = 0;
   Phase phase_ = Phase::actionPhase;
+  int last_player_to_go_ = -1;
 
   std::array<int, kNumSupplyPiles> supply_piles_{}; // counts per supply pile
   std::array<CardName, kNumSupplyPiles> supply_types_{}; // type per pile

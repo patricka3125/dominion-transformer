@@ -4,6 +4,7 @@
 #include "open_spiel/spiel_utils.h"
 
 #include "dominion.hpp"
+#include "actions.hpp"
 
 using open_spiel::LoadGame;
 using open_spiel::State;
@@ -41,6 +42,7 @@ struct DominionTestHarness {
 using open_spiel::dominion::DominionState;
 using open_spiel::dominion::CardName;
 using open_spiel::dominion::DominionTestHarness;
+// ActionIds is a namespace; refer to it with a qualified name.
 
 // Gardens: 1 VP per Gardens for every 10 total cards (deck+discard+hand).
 static void TestGardensVP() {
@@ -64,8 +66,8 @@ static void TestGardensVP() {
   // Player 1: empty -> 0 VP.
 
   auto returns = ds->Returns();
-  SPIEL_CHECK_EQ(static_cast<int>(returns[0]), 4);
-  SPIEL_CHECK_EQ(static_cast<int>(returns[1]), 0);
+  SPIEL_CHECK_EQ(static_cast<int>(returns[0]), 1);
+  SPIEL_CHECK_EQ(static_cast<int>(returns[1]), -1);
 }
 
 // Basic VP: Estate (1), Duchy (3), Province (6), Curse (-1) => total 9 VP.
@@ -89,8 +91,49 @@ static void TestBasicVPCount() {
   DominionTestHarness::AddCardToDeck(ds, 0, CardName::CARD_Curse);
 
   auto returns = ds->Returns();
-  SPIEL_CHECK_EQ(static_cast<int>(returns[0]), 9);
-  SPIEL_CHECK_EQ(static_cast<int>(returns[1]), 0);
+  SPIEL_CHECK_EQ(static_cast<int>(returns[0]), 1);
+  SPIEL_CHECK_EQ(static_cast<int>(returns[1]), -1);
+}
+
+// Tie-breaker and draw rules:
+// - If VP ties and second player was last to go, it's a draw (0,0).
+// - If VP ties and first player was last to go, player 2 wins (-1, +1).
+static void TestTieBreakerAndDrawRules() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  auto end_turn = [&](DominionState* s) {
+    s->ApplyAction(open_spiel::dominion::ActionIds::EndActions());
+    s->ApplyAction(open_spiel::dominion::ActionIds::EndBuy());
+  };
+
+  // Equal VP for both players.
+  DominionTestHarness::AddCardToDiscard(ds, 0, CardName::CARD_Estate);
+  DominionTestHarness::AddCardToDiscard(ds, 1, CardName::CARD_Estate);
+
+  // Make player 1 the last to go.
+  end_turn(ds);  // Player 0 finishes
+  end_turn(ds);  // Player 1 finishes
+  DominionTestHarness::SetProvinceEmpty(ds);
+  SPIEL_CHECK_TRUE(ds->IsTerminal());
+  auto returns_draw = ds->Returns();
+  SPIEL_CHECK_EQ(static_cast<int>(returns_draw[0]), 0);
+  SPIEL_CHECK_EQ(static_cast<int>(returns_draw[1]), 0);
+
+  // Reset and make player 0 the last to go; tie => player 2 wins.
+  state = game->NewInitialState();
+  ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+  DominionTestHarness::AddCardToDiscard(ds, 0, CardName::CARD_Estate);
+  DominionTestHarness::AddCardToDiscard(ds, 1, CardName::CARD_Estate);
+  end_turn(ds);  // Player 0 finishes
+  DominionTestHarness::SetProvinceEmpty(ds);
+  SPIEL_CHECK_TRUE(ds->IsTerminal());
+  auto returns_p2win = ds->Returns();
+  SPIEL_CHECK_EQ(static_cast<int>(returns_p2win[0]), -1);
+  SPIEL_CHECK_EQ(static_cast<int>(returns_p2win[1]), 1);
 }
 
 // Determinism and RNG serialization: with the same rng_seed and a saved
@@ -154,6 +197,7 @@ static void TestDeterministicRNGSerialization() {
 int main() {
   TestGardensVP();
   TestBasicVPCount();
+  TestTieBreakerAndDrawRules();
   TestDeterministicRNGSerialization();
   return 0;
 }

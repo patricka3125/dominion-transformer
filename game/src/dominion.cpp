@@ -296,7 +296,10 @@ std::vector<double> DominionState::Returns() const {
   if (!IsTerminal()) return std::vector<double>(kNumPlayers, 0.0);
   int vp0 = CountVP(player_states_[0]);
   int vp1 = CountVP(player_states_[1]);
-  return {static_cast<double>(vp0), static_cast<double>(vp1)};
+  if (vp0 > vp1) return {1.0, -1.0};
+  if (vp1 > vp0) return {-1.0, 1.0};
+  if (last_player_to_go_ == 1) return {0.0, 0.0};
+  return {-1.0, 1.0};
 }
 
 std::unique_ptr<State> DominionState::Clone() const {
@@ -358,6 +361,7 @@ void DominionState::DoApplyAction(Action action_id) {
   } else if (phase_ == Phase::buyPhase) {
     if (action_id == ActionIds::EndBuy()) {
       // Perform cleanup and start next turn (no explicit cleanup phase).
+      last_player_to_go_ = current_player_;
       auto move_all = [&](std::vector<CardName>& from) {
         for (auto c : from) ps.discard_.push_back(c);
         from.clear();
