@@ -80,6 +80,11 @@ namespace {
 static bool HasType(const Card& c, CardType t) {
   return std::find(c.types_.begin(), c.types_.end(), t) != c.types_.end();
 }
+
+// Format an action as "id:name" using the game's action-naming helpers.
+static std::string FormatActionPair(Action a) {
+  return std::to_string(static_cast<int>(a)) + ":" + ActionNames::Name(a, kNumSupplyPiles);
+}
 }
 
 void DominionState::DrawCardsFor(int player, int n) {
@@ -244,6 +249,23 @@ std::string DominionState::ObservationString(int player) const {
     if (i) s += " ";
     s += card_name(play_area_[i]);
   }
+  s += "\n";
+
+  // Append last public action and current legal actions (only for current player).
+  const auto h = History();
+  if (!h.empty()) {
+    s += "LastAction: ";
+    s += FormatActionPair(h.back());
+    s += "\n";
+  }
+  if (player == current_player_) {
+    s += "LegalActions: ";
+    const auto las = LegalActions();
+    for (size_t i = 0; i < las.size(); ++i) {
+      if (i) s += ", ";
+      s += FormatActionPair(las[i]);
+    }
+  }
   return s;
 }
 
@@ -251,8 +273,21 @@ std::string DominionState::ObservationString(int player) const {
 // Include public info and the player's private info plus full public history.
 std::string DominionState::InformationStateString(int player) const {
   std::string s = ObservationString(player);
-  s += "History: ";
+  // Include last action and legal actions for current player (already safe to expose).
   const auto h = History();
+  if (!h.empty()) {
+    s += "\nLastAction: ";
+    s += FormatActionPair(h.back());
+  }
+  if (player == current_player_) {
+    s += "\nLegalActions: ";
+    const auto las = LegalActions();
+    for (size_t i = 0; i < las.size(); ++i) {
+      if (i) s += ", ";
+      s += FormatActionPair(las[i]);
+    }
+  }
+  s += "History: ";
   for (size_t i = 0; i < h.size(); ++i) {
     if (i) s += ",";
     s += std::to_string(static_cast<int>(h[i]));
