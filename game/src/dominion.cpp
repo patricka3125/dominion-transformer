@@ -204,7 +204,9 @@ std::vector<Action> DominionState::LegalActions() const {
 }
 
 std::string DominionState::ActionToString(Player /*player*/, Action action_id) const {
-  return FormatActionPair(action_id);
+  const auto& ps_act = player_states_[current_player_];
+  return std::to_string(static_cast<int>(action_id)) + ":" +
+         ActionNames::NameWithCard(action_id, kNumSupplyPiles, ps_act.hand_, supply_types_.data());
 }
 
 // Per-player observation string: only include public info and the player's own privates.
@@ -267,8 +269,19 @@ std::string DominionState::ObservationString(int player) const {
     for (size_t i = 0; i < las.size(); ++i) {
       if (i) s += ", ";
       const Action a = las[i];
-      auto detailed = ActionNames::NameWithCard(a, kNumSupplyPiles, ps_me.hand_, supply_types_.data());
-      s += std::to_string(static_cast<int>(a)) + ":" + detailed;
+      std::string a_str = FormatActionPair(a);
+      if (a < ActionIds::BuyBase()) {
+        int idx = static_cast<int>(a);
+        if (idx >= 0 && idx < static_cast<int>(ps_me.hand_.size())) {
+          a_str += " (" + card_name(ps_me.hand_[idx]) + ")";
+        }
+      } else if (a >= ActionIds::BuyBase() && a < ActionIds::BuyBase() + kNumSupplyPiles) {
+        int j = static_cast<int>(a) - ActionIds::BuyBase();
+        if (j >= 0 && j < kNumSupplyPiles) {
+          a_str += " (" + card_name(supply_types_[j]) + ")";
+        }
+      }
+      s += a_str;
     }
   }
   return s;
@@ -290,8 +303,21 @@ std::string DominionState::InformationStateString(int player) const {
     for (size_t i = 0; i < las.size(); ++i) {
       if (i) s += ", ";
       const Action a = las[i];
-      auto detailed = ActionNames::NameWithCard(a, kNumSupplyPiles, player_states_[player].hand_, supply_types_.data());
-      s += std::to_string(static_cast<int>(a)) + ":" + detailed;
+      std::string a_str = FormatActionPair(a);
+      const auto& ps_me = player_states_[player];
+      auto card_name = [](CardName cn) { return GetCardSpec(cn).name_; };
+      if (a < ActionIds::BuyBase()) {
+        int idx = static_cast<int>(a);
+        if (idx >= 0 && idx < static_cast<int>(ps_me.hand_.size())) {
+          a_str += " (" + card_name(ps_me.hand_[idx]) + ")";
+        }
+      } else if (a >= ActionIds::BuyBase() && a < ActionIds::BuyBase() + kNumSupplyPiles) {
+        int j = static_cast<int>(a) - ActionIds::BuyBase();
+        if (j >= 0 && j < kNumSupplyPiles) {
+          a_str += " (" + card_name(supply_types_[j]) + ")";
+        }
+      }
+      s += a_str;
     }
   }
   s += "History: ";
