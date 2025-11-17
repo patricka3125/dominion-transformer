@@ -132,7 +132,7 @@ DominionState::DominionState(std::shared_ptr<const Game> game)
   supply_types_[16] = CardName::CARD_Festival;
 
   // Supply counts
-  supply_piles_[0] = 60 - 7 * kNumPlayers;
+  supply_piles_[0] = 60;
   supply_piles_[1] = 40;
   supply_piles_[2] = 30;
   supply_piles_[3] = 8;
@@ -154,9 +154,6 @@ DominionState::DominionState(std::shared_ptr<const Game> game)
     }
     DrawCardsFor(p, 5);
   }
-
-  supply_piles_[0] -= 7 * kNumPlayers;
-  supply_piles_[3] -= 3 * kNumPlayers;
 
   current_player_ = 0;
   actions_ = 1;
