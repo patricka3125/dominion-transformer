@@ -305,6 +305,7 @@ std::string DominionState::ObservationString(int player) const {
 
 // Information state string: perfect recall view for the player.
 // Include public info and the player's private info plus full public history.
+// TODO: Add information about deck and discard tracking, opponent deck tracking, etc.
 std::string DominionState::InformationStateString(int player) const {
   std::string s = ObservationString(player);
   // Include last action and legal actions for current player (already safe to expose).
@@ -312,29 +313,6 @@ std::string DominionState::InformationStateString(int player) const {
   if (!h.empty()) {
     s += "\nLastAction: ";
     s += FormatActionPair(h.back());
-  }
-  if (player == current_player_) {
-    s += "\nLegalActions: ";
-    const auto las = LegalActions();
-    for (size_t i = 0; i < las.size(); ++i) {
-      if (i) s += ", ";
-      const Action a = las[i];
-      std::string a_str = FormatActionPair(a);
-      const auto& ps_me = player_states_[player];
-      auto card_name = [](CardName cn) { return GetCardSpec(cn).name_; };
-      if (a < ActionIds::BuyBase()) {
-        int idx = static_cast<int>(a);
-        if (idx >= 0 && idx < static_cast<int>(ps_me.hand_.size())) {
-          a_str += " (" + card_name(ps_me.hand_[idx]) + ")";
-        }
-      } else if (a >= ActionIds::BuyBase() && a < ActionIds::BuyBase() + kNumSupplyPiles) {
-        int j = static_cast<int>(a) - ActionIds::BuyBase();
-        if (j >= 0 && j < kNumSupplyPiles) {
-          a_str += " (" + card_name(supply_types_[j]) + ")";
-        }
-      }
-      s += a_str;
-    }
   }
   s += "History: ";
   for (size_t i = 0; i < h.size(); ++i) {
