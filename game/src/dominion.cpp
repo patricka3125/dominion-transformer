@@ -18,7 +18,7 @@ const GameType kGameType{
     GameType::Dynamics::kSequential,
     GameType::ChanceMode::kDeterministic,
     GameType::Information::kImperfectInformation,
-    GameType::Utility::kGeneralSum,
+    GameType::Utility::kZeroSum,
     GameType::RewardModel::kTerminal,
     /*max_num_players=*/kNumPlayers,
     /*min_num_players=*/kNumPlayers,
@@ -204,7 +204,7 @@ std::vector<Action> DominionState::LegalActions() const {
 }
 
 std::string DominionState::ActionToString(Player /*player*/, Action action_id) const {
-  return ActionNames::Name(action_id, kNumSupplyPiles);
+  return FormatActionPair(action_id);
 }
 
 // Per-player observation string: only include public info and the player's own privates.
@@ -236,10 +236,13 @@ std::string DominionState::ObservationString(int player) const {
   s += std::string("OpponentDiscardSize: ") + std::to_string(ps_opp.discard_.size()) + "\n";
 
   // Public supply counts.
-  s += "SupplyCounts: ";
+  s += "Supply: ";
   for (int i = 0; i < kNumSupplyPiles; ++i) {
-    if (i) s += ",";
-    s += std::to_string(supply_piles_[i]);
+    if (i) s += ", ";
+    s += std::to_string(i);
+    s += ":";
+    s += card_name(supply_types_[i]);
+    s += "=" + std::to_string(supply_piles_[i]);
   }
   s += "\n";
 
@@ -263,7 +266,20 @@ std::string DominionState::ObservationString(int player) const {
     const auto las = LegalActions();
     for (size_t i = 0; i < las.size(); ++i) {
       if (i) s += ", ";
-      s += FormatActionPair(las[i]);
+      const Action a = las[i];
+      std::string a_str = FormatActionPair(a);
+      if (a < ActionIds::BuyBase()) {
+        int idx = static_cast<int>(a);
+        if (idx >= 0 && idx < static_cast<int>(ps_me.hand_.size())) {
+          a_str += " (" + card_name(ps_me.hand_[idx]) + ")";
+        }
+      } else if (a >= ActionIds::BuyBase() && a < ActionIds::BuyBase() + kNumSupplyPiles) {
+        int j = static_cast<int>(a) - ActionIds::BuyBase();
+        if (j >= 0 && j < kNumSupplyPiles) {
+          a_str += " (" + card_name(supply_types_[j]) + ")";
+        }
+      }
+      s += a_str;
     }
   }
   return s;
@@ -284,7 +300,22 @@ std::string DominionState::InformationStateString(int player) const {
     const auto las = LegalActions();
     for (size_t i = 0; i < las.size(); ++i) {
       if (i) s += ", ";
-      s += FormatActionPair(las[i]);
+      const Action a = las[i];
+      std::string a_str = FormatActionPair(a);
+      const auto& ps_me = player_states_[player];
+      auto card_name = [](CardName cn) { return GetCardSpec(cn).name_; };
+      if (a < ActionIds::BuyBase()) {
+        int idx = static_cast<int>(a);
+        if (idx >= 0 && idx < static_cast<int>(ps_me.hand_.size())) {
+          a_str += " (" + card_name(ps_me.hand_[idx]) + ")";
+        }
+      } else if (a >= ActionIds::BuyBase() && a < ActionIds::BuyBase() + kNumSupplyPiles) {
+        int j = static_cast<int>(a) - ActionIds::BuyBase();
+        if (j >= 0 && j < kNumSupplyPiles) {
+          a_str += " (" + card_name(supply_types_[j]) + ")";
+        }
+      }
+      s += a_str;
     }
   }
   s += "History: ";
