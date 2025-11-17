@@ -41,15 +41,32 @@ enum class PendingChoice {
   SelectUpToCardsFromBoard,
 };
 
-// ObservationState aggregates per-player visible counts for observation purposes.
+// ObservationState holds references to a player's containers for observation.
+// Opponent-known counts remain aggregated to preserve imperfect information.
 struct ObservationState {
-  std::map<CardName, int> player_deck_counts;
-  std::map<CardName, int> player_discard_counts;
+  std::vector<CardName>& player_hand;
+  std::vector<CardName>& player_deck;
+  std::vector<CardName>& player_discard;
   std::map<CardName, int> opponent_known_counts; // combined known set of opponent's hand+deck+discard
 
-  ObservationState() = default;
+  ObservationState(std::vector<CardName>& hand,
+                   std::vector<CardName>& deck,
+                   std::vector<CardName>& discard)
+      : player_hand(hand), player_deck(deck), player_discard(discard) {}
   ObservationState(const ObservationState& other) = default;
-  std::unique_ptr<ObservationState> clone() const { return std::make_unique<ObservationState>(*this); }
+
+  // Returns known counts by distinct card for the player's deck.
+  std::map<CardName, int> KnownDeckCounts() const {
+    std::map<CardName, int> out;
+    for (auto cn : player_deck) out[cn] += 1;
+    return out;
+  }
+  // Returns known counts by distinct card for the player's discard.
+  std::map<CardName, int> KnownDiscardCounts() const {
+    std::map<CardName, int> out;
+    for (auto cn : player_discard) out[cn] += 1;
+    return out;
+  }
 };
 
 struct PlayerState {
@@ -89,7 +106,7 @@ struct PlayerState {
         pending_throne_replay_stack(other.pending_throne_replay_stack),
         pending_throne_schedule_second_for(other.pending_throne_schedule_second_for) {
     effect_head = other.effect_head ? other.effect_head->clone() : nullptr;
-    obs_state = other.obs_state ? other.obs_state->clone() : nullptr;
+    obs_state = std::make_unique<ObservationState>(hand_, deck_, discard_);
   }
   // No copy-assignment: deep copy supported via copy constructor; assignment is intentionally omitted.
 

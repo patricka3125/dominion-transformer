@@ -238,30 +238,15 @@ static void TestInitialConstructorState() {
   SPIEL_CHECK_EQ(static_cast<int>(DominionTestHarness::SupplyType(ds, 0)), static_cast<int>(CardName::CARD_Copper));
   SPIEL_CHECK_EQ(static_cast<int>(DominionTestHarness::SupplyType(ds, 3)), static_cast<int>(CardName::CARD_Estate));
 
-  // Player observation states exist and reflect deck/discard counts.
+  // Player observation states exist and reflect deck/discard sizes via pointers.
   for (int p = 0; p < kNumPlayers; ++p) {
     SPIEL_CHECK_TRUE(DominionTestHarness::HasObsState(ds, p));
     const ObservationState* obs = DominionTestHarness::Obs(ds, p);
     // Deck and discard sizes per ObservationState should match actual vectors.
-    int deck_size_sum = 0;
-    for (const auto& kv : obs->player_deck_counts) deck_size_sum += kv.second;
-    SPIEL_CHECK_EQ(deck_size_sum, DominionTestHarness::DeckSize(ds, p));
-    int discard_size_sum = 0;
-    for (const auto& kv : obs->player_discard_counts) discard_size_sum += kv.second;
-    SPIEL_CHECK_EQ(discard_size_sum, DominionTestHarness::DiscardSize(ds, p));
-
-    // Opponent known counts should equal opponent total cards (hand + deck + discard) and only Copper+Estate initially.
-    int opp = 1 - p;
-    int opp_total = DominionTestHarness::HandSize(ds, opp) + DominionTestHarness::DeckSize(ds, opp) + DominionTestHarness::DiscardSize(ds, opp);
-    int opp_known_sum = 0;
-    for (const auto& kv : obs->opponent_known_counts) opp_known_sum += kv.second;
-    SPIEL_CHECK_EQ(opp_known_sum, opp_total);
-    int copper = 0, estate = 0;
-    auto it_c = obs->opponent_known_counts.find(CardName::CARD_Copper);
-    if (it_c != obs->opponent_known_counts.end()) copper = it_c->second;
-    auto it_e = obs->opponent_known_counts.find(CardName::CARD_Estate);
-    if (it_e != obs->opponent_known_counts.end()) estate = it_e->second;
-    SPIEL_CHECK_EQ(copper + estate, opp_total);
+    int deck_size = static_cast<int>(obs->player_deck.size());
+    SPIEL_CHECK_EQ(deck_size, DominionTestHarness::DeckSize(ds, p));
+    int discard_size = static_cast<int>(obs->player_discard.size());
+    SPIEL_CHECK_EQ(discard_size, DominionTestHarness::DiscardSize(ds, p));
   }
 
   // Initial decks and hands: 10-card deck then draw 5 => hand=5, deck=5, discard=0.

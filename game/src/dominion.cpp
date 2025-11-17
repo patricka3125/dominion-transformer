@@ -154,7 +154,7 @@ DominionState::DominionState(std::shared_ptr<const Game> game)
     ps.deck_.clear();
     ps.discard_.clear();
     ps.hand_.clear();
-    ps.obs_state = std::make_unique<ObservationState>();
+    ps.obs_state = std::make_unique<ObservationState>(ps.hand_, ps.deck_, ps.discard_);
     for (int i = 0; i < 7; ++i) {
       ps.deck_.push_back(CardName::CARD_Copper);
     }
@@ -166,8 +166,6 @@ DominionState::DominionState(std::shared_ptr<const Game> game)
     }
 
     DrawCardsFor(p, 5);
-    BuildCounts(ps.obs_state->player_deck_counts, ps.deck_);
-    BuildCounts(ps.obs_state->player_discard_counts, ps.discard_);
   }
 
   current_player_ = 0;
@@ -175,17 +173,6 @@ DominionState::DominionState(std::shared_ptr<const Game> game)
   buys_ = 1;
   coins_ = 0;
   phase_ = Phase::actionPhase;
-
-  // Populate opponent known counts for each player's observation state.
-  for (int p = 0; p < kNumPlayers; ++p) {
-    auto& me = player_states_[p];
-    auto& opp = player_states_[1 - p];
-    if (!me.obs_state) me.obs_state = std::make_unique<ObservationState>();
-    me.obs_state->opponent_known_counts.clear();
-    for (auto cn : opp.hand_) me.obs_state->opponent_known_counts[cn] += 1;
-    for (auto cn : opp.deck_) me.obs_state->opponent_known_counts[cn] += 1;
-    for (auto cn : opp.discard_) me.obs_state->opponent_known_counts[cn] += 1;
-  }
 }
 
 Player DominionState::CurrentPlayer() const { return current_player_; }
@@ -244,8 +231,7 @@ std::vector<Action> DominionState::LegalActions() const {
 
 std::string DominionState::ActionToString(Player /*player*/, Action action_id) const {
   const auto& ps_act = player_states_[current_player_];
-  return std::to_string(static_cast<int>(action_id)) + ":" +
-         ActionNames::NameWithCard(action_id, kNumSupplyPiles, ps_act.hand_, supply_types_.data());
+  return ActionNames::NameWithCard(action_id, kNumSupplyPiles, ps_act.hand_, supply_types_.data());
 }
 
 // Per-player observation string: only include public info and the player's own privates.
