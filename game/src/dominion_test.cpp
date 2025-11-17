@@ -31,6 +31,7 @@ struct DominionTestHarness {
   static int Buys(DominionState* s) { return s->buys_; }
   static int Coins(DominionState* s) { return s->coins_; }
   static Phase PhaseVal(DominionState* s) { return s->phase_; }
+  static int TurnNumber(DominionState* s) { return s->turn_number_; }
   static void ResetPlayer(DominionState* s, int player) {
     s->player_states_[player].deck_.clear();
     s->player_states_[player].hand_.clear();
@@ -64,6 +65,9 @@ using open_spiel::dominion::kNumSupplyPiles;
 using open_spiel::dominion::kNumPlayers;
 using open_spiel::dominion::Phase;
 // ActionIds is a namespace; refer to it with a qualified name.
+
+static void TestEndBuySwitchesPlayerAndTurnIncrements();
+static void TestAutoEndOnLastBuy();
 
 // Gardens: 1 VP per Gardens for every 10 total cards (deck+discard+hand).
 static void TestGardensVP() {
@@ -265,10 +269,47 @@ static void TestInitialConstructorState() {
 }
 
 int main() {
+  TestEndBuySwitchesPlayerAndTurnIncrements();
+  TestAutoEndOnLastBuy();
   TestGardensVP();
   TestBasicVPCount();
   TestTieBreakerAndDrawRules();
   TestDeterministicRNGSerialization();
   TestInitialConstructorState();
   return 0;
+}
+// Verify EndBuy switches to next player and increments turn number (1-based).
+static void TestEndBuySwitchesPlayerAndTurnIncrements() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  SPIEL_CHECK_EQ(DominionTestHarness::CurrentPlayer(ds), 0);
+  SPIEL_CHECK_EQ(DominionTestHarness::TurnNumber(ds), 1);
+
+  ds->ApplyAction(open_spiel::dominion::ActionIds::EndActions());
+  ds->ApplyAction(open_spiel::dominion::ActionIds::EndBuy());
+
+  SPIEL_CHECK_EQ(DominionTestHarness::CurrentPlayer(ds), 1);
+  SPIEL_CHECK_EQ(DominionTestHarness::TurnNumber(ds), 2);
+}
+
+// Verify that spending the last buy auto-ends the turn.
+static void TestAutoEndOnLastBuy() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  // Move to buy phase.
+  ds->ApplyAction(open_spiel::dominion::ActionIds::EndActions());
+  // Ensure Copper (cost 0) is buyable with 1 buy.
+  int turn_before = DominionTestHarness::TurnNumber(ds);
+  int player_before = DominionTestHarness::CurrentPlayer(ds);
+  ds->ApplyAction(open_spiel::dominion::ActionIds::BuyFromSupply(0));
+  // After spending last buy, turn should auto-end.
+  SPIEL_CHECK_EQ(DominionTestHarness::TurnNumber(ds), turn_before + 1);
+  SPIEL_CHECK_EQ(DominionTestHarness::CurrentPlayer(ds), 1 - player_before);
+  SPIEL_CHECK_EQ(static_cast<int>(DominionTestHarness::PhaseVal(ds)), static_cast<int>(open_spiel::dominion::Phase::actionPhase));
 }

@@ -426,21 +426,7 @@ void DominionState::DoApplyAction(Action action_id) {
     }
   } else if (phase_ == Phase::buyPhase) {
     if (action_id == ActionIds::EndBuy()) {
-      // Perform cleanup and start next turn (no explicit cleanup phase).
-      last_player_to_go_ = current_player_;
-      auto move_all = [&](std::vector<CardName>& from) {
-        for (auto c : from) ps.discard_.push_back(c);
-        from.clear();
-      };
-      move_all(ps.hand_);
-      move_all(play_area_);
-      coins_ = 0;
-      actions_ = 1;
-      buys_ = 1;
-      turn_number_ += 1;
-      current_player_ = 1 - current_player_;
-      phase_ = Phase::actionPhase;
-      DrawCardsFor(current_player_, 5);
+      EndBuyCleanup();
       return;
     }
     if (action_id < ActionIds::BuyBase() && action_id < static_cast<Action>(ps.hand_.size())) {
@@ -462,11 +448,36 @@ void DominionState::DoApplyAction(Action action_id) {
           buys_ -= 1;
           ps.discard_.push_back(supply_types_[j]);
           supply_piles_[j] -= 1;
+          if (buys_ == 0) {
+            EndBuyCleanup();
+            return;
+          }
         }
       }
       return;
     }
   }
+}
+
+void DominionState::EndBuyCleanup() {
+  // Cleanup end of turn for current_player_
+  auto& ps = player_states_[current_player_];
+  last_player_to_go_ = current_player_;
+  auto move_all = [&](std::vector<CardName>& from) {
+    for (auto c : from) ps.discard_.push_back(c);
+    from.clear();
+  };
+  move_all(ps.hand_);
+  move_all(play_area_);
+
+  // Reset and switch the next player
+  coins_ = 0;
+  actions_ = 1;
+  buys_ = 1;
+  turn_number_ += 1;
+  DrawCardsFor(current_player_, 5);
+  current_player_ = 1 - current_player_;
+  phase_ = Phase::actionPhase;
 }
 
 }  // namespace dominion

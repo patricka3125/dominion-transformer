@@ -166,11 +166,12 @@ class DominionState : public State {
   // - Delegates effect-specific resolution first (e.g., discard selection).
   // - Handles phase transitions: EndActions -> buyPhase; EndBuy -> cleanup + next turn.
   void DoApplyAction(Action action_id) override;
+  void EndBuyCleanup();
 
  private:
   Player current_player_ = 0;
   int coins_ = 0;
-  int turn_number_ = 0;
+  int turn_number_ = 1;
   int actions_ = 1;
   int buys_ = 1;
   int money_0 = 0;
