@@ -179,16 +179,32 @@ std::vector<Action> DominionState::LegalActions() const {
   }
   if (phase_ == Phase::actionPhase) {
     if (actions_ > 0) {
+      std::array<bool, kNumCardTypes> seen{};
       for (int i = 0; i < static_cast<int>(ps.hand_.size()) && i < 100; ++i) {
-        const Card& spec = GetCardSpec(ps.hand_[i]);
-        if (HasType(spec, CardType::ACTION)) actions.push_back(ActionIds::PlayHandIndex(i));
+        CardName cn = ps.hand_[i];
+        const Card& spec = GetCardSpec(cn);
+        if (HasType(spec, CardType::ACTION)) {
+          int cidx = static_cast<int>(cn);
+          if (cidx >= 0 && cidx < kNumCardTypes && !seen[cidx]) {
+            actions.push_back(ActionIds::PlayHandIndex(i));
+            seen[cidx] = true;
+          }
+        }
       }
     }
     actions.push_back(ActionIds::EndActions());
   } else if (phase_ == Phase::buyPhase) {
+    std::array<bool, kNumCardTypes> seen{};
     for (int i = 0; i < static_cast<int>(ps.hand_.size()) && i < 100; ++i) {
-      const Card& spec = GetCardSpec(ps.hand_[i]);
-      if (HasType(spec, CardType::TREASURE)) actions.push_back(ActionIds::PlayHandIndex(i));
+      CardName cn = ps.hand_[i];
+      const Card& spec = GetCardSpec(cn);
+      if (HasType(spec, CardType::TREASURE)) {
+        int cidx = static_cast<int>(cn);
+        if (cidx >= 0 && cidx < kNumCardTypes && !seen[cidx]) {
+          actions.push_back(ActionIds::PlayHandIndex(i));
+          seen[cidx] = true;
+        }
+      }
     }
     if (buys_1 > 0) {
       for (int j = 0; j < kNumSupplyPiles; ++j) {
