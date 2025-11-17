@@ -223,6 +223,7 @@ std::string DominionState::ActionToString(Player /*player*/, Action action_id) c
 }
 
 // Per-player observation string: only include public info and the player's own privates.
+// TODO: Add information about deck and discard tracking, opponent deck tracking, etc.
 std::string DominionState::ObservationString(int player) const {
   const auto& ps_me = player_states_[player];
   const auto& ps_opp = player_states_[1 - player];
@@ -302,7 +303,6 @@ std::string DominionState::ObservationString(int player) const {
 
 // Information state string: perfect recall view for the player.
 // Include public info and the player's private info plus full public history.
-// TODO: Add information about deck and discard tracking, opponent deck tracking, etc.
 std::string DominionState::InformationStateString(int player) const {
   std::string s = ObservationString(player);
   // Include last action and legal actions for current player (already safe to expose).
@@ -310,11 +310,6 @@ std::string DominionState::InformationStateString(int player) const {
   if (!h.empty()) {
     s += "\nLastAction: ";
     s += FormatActionPair(h.back());
-  }
-  s += "History: ";
-  for (size_t i = 0; i < h.size(); ++i) {
-    if (i) s += ",";
-    s += std::to_string(static_cast<int>(h[i]));
   }
   return s;
 }
