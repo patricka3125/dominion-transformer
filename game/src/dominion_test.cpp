@@ -14,6 +14,23 @@ namespace open_spiel { namespace dominion {
 
 // Friend access helper for tests to manipulate private state.
 struct DominionTestHarness {
+  // Accessors for verification of private fields.
+  static const std::array<int, kNumSupplyPiles>& SupplyCounts(DominionState* s) {
+    return s->supply_piles_;
+  }
+  static CardName SupplyType(DominionState* s, int idx) {
+    return s->supply_types_[idx];
+  }
+  static int DeckSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].deck_.size()); }
+  static int HandSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].hand_.size()); }
+  static int DiscardSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].discard_.size()); }
+  static bool HasObsState(DominionState* s, int player) { return s->player_states_[player].obs_state != nullptr; }
+  static const ObservationState* Obs(DominionState* s, int player) { return s->player_states_[player].obs_state.get(); }
+  static int CurrentPlayer(DominionState* s) { return s->current_player_; }
+  static int Actions(DominionState* s) { return s->actions_; }
+  static int Buys(DominionState* s) { return s->buys_; }
+  static int Coins(DominionState* s) { return s->coins_; }
+  static Phase PhaseVal(DominionState* s) { return s->phase_; }
   static void ResetPlayer(DominionState* s, int player) {
     s->player_states_[player].deck_.clear();
     s->player_states_[player].hand_.clear();
@@ -42,6 +59,10 @@ struct DominionTestHarness {
 using open_spiel::dominion::DominionState;
 using open_spiel::dominion::CardName;
 using open_spiel::dominion::DominionTestHarness;
+using open_spiel::dominion::ObservationState;
+using open_spiel::dominion::kNumSupplyPiles;
+using open_spiel::dominion::kNumPlayers;
+using open_spiel::dominion::Phase;
 // ActionIds is a namespace; refer to it with a qualified name.
 
 // Gardens: 1 VP per Gardens for every 10 total cards (deck+discard+hand).
@@ -194,10 +215,75 @@ static void TestDeterministicRNGSerialization() {
   SPIEL_CHECK_TRUE(any_diff);
 }
 
+// Verify initial constructor invariants for DominionState.
+static void TestInitialConstructorState() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  // Supply types and counts.
+  const auto& counts = DominionTestHarness::SupplyCounts(ds);
+  SPIEL_CHECK_EQ(static_cast<int>(counts.size()), kNumSupplyPiles);
+  SPIEL_CHECK_EQ(counts[0], 60);  // Copper
+  SPIEL_CHECK_EQ(counts[1], 40);  // Silver
+  SPIEL_CHECK_EQ(counts[2], 30);  // Gold
+  SPIEL_CHECK_EQ(counts[3], 8);   // Estate
+  SPIEL_CHECK_EQ(counts[4], 8);   // Duchy
+  SPIEL_CHECK_EQ(counts[5], 8);   // Province
+  SPIEL_CHECK_EQ(counts[6], 10);  // Curse
+  for (int i = 7; i < kNumSupplyPiles; ++i) {
+    SPIEL_CHECK_EQ(counts[i], 10);
+  }
+  SPIEL_CHECK_EQ(static_cast<int>(DominionTestHarness::SupplyType(ds, 0)), static_cast<int>(CardName::CARD_Copper));
+  SPIEL_CHECK_EQ(static_cast<int>(DominionTestHarness::SupplyType(ds, 3)), static_cast<int>(CardName::CARD_Estate));
+
+  // Player observation states exist and reflect deck/discard counts.
+  for (int p = 0; p < kNumPlayers; ++p) {
+    SPIEL_CHECK_TRUE(DominionTestHarness::HasObsState(ds, p));
+    const ObservationState* obs = DominionTestHarness::Obs(ds, p);
+    // Deck and discard sizes per ObservationState should match actual vectors.
+    int deck_size_sum = 0;
+    for (const auto& kv : obs->player_deck_counts) deck_size_sum += kv.second;
+    SPIEL_CHECK_EQ(deck_size_sum, DominionTestHarness::DeckSize(ds, p));
+    int discard_size_sum = 0;
+    for (const auto& kv : obs->player_discard_counts) discard_size_sum += kv.second;
+    SPIEL_CHECK_EQ(discard_size_sum, DominionTestHarness::DiscardSize(ds, p));
+
+    // Opponent known counts should equal opponent total cards (hand + deck + discard) and only Copper+Estate initially.
+    int opp = 1 - p;
+    int opp_total = DominionTestHarness::HandSize(ds, opp) + DominionTestHarness::DeckSize(ds, opp) + DominionTestHarness::DiscardSize(ds, opp);
+    int opp_known_sum = 0;
+    for (const auto& kv : obs->opponent_known_counts) opp_known_sum += kv.second;
+    SPIEL_CHECK_EQ(opp_known_sum, opp_total);
+    int copper = 0, estate = 0;
+    auto it_c = obs->opponent_known_counts.find(CardName::CARD_Copper);
+    if (it_c != obs->opponent_known_counts.end()) copper = it_c->second;
+    auto it_e = obs->opponent_known_counts.find(CardName::CARD_Estate);
+    if (it_e != obs->opponent_known_counts.end()) estate = it_e->second;
+    SPIEL_CHECK_EQ(copper + estate, opp_total);
+  }
+
+  // Initial decks and hands: 10-card deck then draw 5 => hand=5, deck=5, discard=0.
+  for (int p = 0; p < kNumPlayers; ++p) {
+    SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, p), 5);
+    SPIEL_CHECK_EQ(DominionTestHarness::DeckSize(ds, p), 5);
+    SPIEL_CHECK_EQ(DominionTestHarness::DiscardSize(ds, p), 0);
+  }
+
+  // Turn/phase and counters.
+  SPIEL_CHECK_EQ(DominionTestHarness::CurrentPlayer(ds), 0);
+  SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), 1);
+  SPIEL_CHECK_EQ(DominionTestHarness::Buys(ds), 1);
+  SPIEL_CHECK_EQ(DominionTestHarness::Coins(ds), 0);
+  SPIEL_CHECK_EQ(static_cast<int>(DominionTestHarness::PhaseVal(ds)), static_cast<int>(open_spiel::dominion::Phase::actionPhase));
+}
+
 int main() {
   TestGardensVP();
   TestBasicVPCount();
   TestTieBreakerAndDrawRules();
   TestDeterministicRNGSerialization();
+  TestInitialConstructorState();
   return 0;
 }

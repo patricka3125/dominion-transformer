@@ -28,7 +28,7 @@ struct DominionTestHarness {
   }
   static void SetPhase(DominionState* s, Phase phase) { s->phase_ = phase; }
   static int Actions(DominionState* s) { return s->actions_; }
-  static int Buys(DominionState* s) { return s->buys_1; }
+  static int Buys(DominionState* s) { return s->buys_; }
   static int Coins(DominionState* s) { return s->coins_; }
   static int HandSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].hand_.size()); }
   static int PlayAreaSize(DominionState* s) { return static_cast<int>(s->play_area_.size()); }

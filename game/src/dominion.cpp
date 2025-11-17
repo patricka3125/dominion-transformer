@@ -85,6 +85,13 @@ static bool HasType(const Card& c, CardType t) {
 static std::string FormatActionPair(Action a) {
   return std::to_string(static_cast<int>(a)) + ":" + ActionNames::Name(a, kNumSupplyPiles);
 }
+
+static void BuildCounts(std::map<CardName,int>& out, const std::vector<CardName>& vec) {
+  out.clear();
+  for (auto cn : vec) {
+    out[cn] += 1;
+  }
+}
 }
 
 void DominionState::DrawCardsFor(int player, int n) {
@@ -147,19 +154,38 @@ DominionState::DominionState(std::shared_ptr<const Game> game)
     ps.deck_.clear();
     ps.discard_.clear();
     ps.hand_.clear();
-    for (int i = 0; i < 7; ++i) ps.deck_.push_back(CardName::CARD_Copper);
-    for (int i = 0; i < 3; ++i) ps.deck_.push_back(CardName::CARD_Estate);
+    ps.obs_state = std::make_unique<ObservationState>();
+    for (int i = 0; i < 7; ++i) {
+      ps.deck_.push_back(CardName::CARD_Copper);
+    }
+    for (int i = 0; i < 3; ++i) {
+      ps.deck_.push_back(CardName::CARD_Estate);
+    }
     if (rng) {
       std::shuffle(ps.deck_.begin(), ps.deck_.end(), *rng);
     }
+
     DrawCardsFor(p, 5);
+    BuildCounts(ps.obs_state->player_deck_counts, ps.deck_);
+    BuildCounts(ps.obs_state->player_discard_counts, ps.discard_);
   }
 
   current_player_ = 0;
   actions_ = 1;
-  buys_1 = 1;
+  buys_ = 1;
   coins_ = 0;
   phase_ = Phase::actionPhase;
+
+  // Populate opponent known counts for each player's observation state.
+  for (int p = 0; p < kNumPlayers; ++p) {
+    auto& me = player_states_[p];
+    auto& opp = player_states_[1 - p];
+    if (!me.obs_state) me.obs_state = std::make_unique<ObservationState>();
+    me.obs_state->opponent_known_counts.clear();
+    for (auto cn : opp.hand_) me.obs_state->opponent_known_counts[cn] += 1;
+    for (auto cn : opp.deck_) me.obs_state->opponent_known_counts[cn] += 1;
+    for (auto cn : opp.discard_) me.obs_state->opponent_known_counts[cn] += 1;
+  }
 }
 
 Player DominionState::CurrentPlayer() const { return current_player_; }
@@ -203,7 +229,7 @@ std::vector<Action> DominionState::LegalActions() const {
         }
       }
     }
-    if (buys_1 > 0) {
+    if (buys_ > 0) {
       for (int j = 0; j < kNumSupplyPiles; ++j) {
         if (supply_piles_[j] <= 0) continue;
         const Card& spec = GetCardSpec(supply_types_[j]);
@@ -233,7 +259,7 @@ std::string DominionState::ObservationString(int player) const {
   s += std::string("Player: ") + std::to_string(player) + "\n";
   s += std::string("Phase: ") + (phase_ == Phase::actionPhase ? "Action" : "Buy") + "\n";
   s += std::string("Actions: ") + std::to_string(actions_) + "\n";
-  s += std::string("Buys: ") + std::to_string(buys_1) + "\n";
+  s += std::string("Buys: ") + std::to_string(buys_) + "\n";
   s += std::string("Coins: ") + std::to_string(coins_) + "\n";
 
   // Show only this player's hand contents; deck and discard sizes only.
@@ -424,7 +450,7 @@ void DominionState::DoApplyAction(Action action_id) {
       move_all(play_area_);
       coins_ = 0;
       actions_ = 1;
-      buys_1 = 1;
+      buys_ = 1;
       turn_number_ += 1;
       current_player_ = 1 - current_player_;
       phase_ = Phase::actionPhase;
@@ -441,13 +467,13 @@ void DominionState::DoApplyAction(Action action_id) {
       }
       return;
     }
-    if (action_id >= ActionIds::BuyBase() && action_id < ActionIds::BuyBase() + kNumSupplyPiles && buys_1 > 0) {
+    if (action_id >= ActionIds::BuyBase() && action_id < ActionIds::BuyBase() + kNumSupplyPiles && buys_ > 0) {
       int j = action_id - ActionIds::BuyBase();
       if (supply_piles_[j] > 0) {
         const Card& spec = GetCardSpec(supply_types_[j]);
         if (coins_ >= spec.cost_) {
           coins_ -= spec.cost_;
-          buys_1 -= 1;
+          buys_ -= 1;
           ps.discard_.push_back(supply_types_[j]);
           supply_piles_[j] -= 1;
         }

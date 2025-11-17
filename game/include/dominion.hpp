@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <random>
+#include <map>
 
 #include "cards.hpp"
 
@@ -40,6 +41,17 @@ enum class PendingChoice {
   SelectUpToCardsFromBoard,
 };
 
+// ObservationState aggregates per-player visible counts for observation purposes.
+struct ObservationState {
+  std::map<CardName, int> player_deck_counts;
+  std::map<CardName, int> player_discard_counts;
+  std::map<CardName, int> opponent_known_counts; // combined known set of opponent's hand+deck+discard
+
+  ObservationState() = default;
+  ObservationState(const ObservationState& other) = default;
+  std::unique_ptr<ObservationState> clone() const { return std::make_unique<ObservationState>(*this); }
+};
+
 struct PlayerState {
   std::vector<CardName> deck_;
   std::vector<CardName> hand_;
@@ -58,6 +70,7 @@ struct PlayerState {
   std::vector<int> pending_hand_original_indices;
   int pending_last_selected_original_index = -1;
   std::unique_ptr<EffectNode> effect_head; // head of pending effect linked list
+  std::unique_ptr<ObservationState> obs_state; // per-player observation state
 
   PlayerState() = default;
   PlayerState(const PlayerState& other)
@@ -76,26 +89,9 @@ struct PlayerState {
         pending_throne_replay_stack(other.pending_throne_replay_stack),
         pending_throne_schedule_second_for(other.pending_throne_schedule_second_for) {
     effect_head = other.effect_head ? other.effect_head->clone() : nullptr;
+    obs_state = other.obs_state ? other.obs_state->clone() : nullptr;
   }
-  PlayerState& operator=(const PlayerState& other) {
-    if (this == &other) return *this;
-    deck_ = other.deck_;
-    hand_ = other.hand_;
-    discard_ = other.discard_;
-    history_ = other.history_;
-    pending_choice = other.pending_choice;
-    pending_discard_count = other.pending_discard_count;
-    pending_draw_equals_discard = other.pending_draw_equals_discard;
-    pending_gain_max_cost = other.pending_gain_max_cost;
-    pending_target_hand_size = other.pending_target_hand_size;
-    pending_hand_original_indices = other.pending_hand_original_indices;
-    pending_last_selected_original_index = other.pending_last_selected_original_index;
-    pending_select_only_action = other.pending_select_only_action;
-    pending_throne_replay_stack = other.pending_throne_replay_stack;
-    pending_throne_schedule_second_for = other.pending_throne_schedule_second_for;
-    effect_head = other.effect_head ? other.effect_head->clone() : nullptr;
-    return *this;
-  }
+  // No copy-assignment: deep copy supported via copy constructor; assignment is intentionally omitted.
 
   // Initialize discard selection metadata for ascending-order subset selection.
   void InitDiscardSelection(bool draw_equals_discard) {
@@ -159,7 +155,7 @@ class DominionState : public State {
   int coins_ = 0;
   int turn_number_ = 0;
   int actions_ = 1;
-  int buys_1 = 1;
+  int buys_ = 1;
   int money_0 = 0;
   Phase phase_ = Phase::actionPhase;
   int last_player_to_go_ = -1;

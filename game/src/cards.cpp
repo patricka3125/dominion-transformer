@@ -292,7 +292,7 @@ const Card& GetCardSpec(CardName name) {
 
 void Card::play(DominionState& state, int player) const {
   state.actions_ += grant_action_;
-  state.buys_1 += grant_buy_;
+  state.buys_ += grant_buy_;
   state.coins_ += value_;
   state.DrawCardsFor(player, grant_draw_);
 }
