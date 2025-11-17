@@ -1,4 +1,5 @@
 #include "actions.hpp"
+#include "cards.hpp"
 
 namespace open_spiel {
 namespace dominion {
@@ -30,6 +31,28 @@ std::string ActionNames::Name(Action action_id, int num_supply_piles) {
   }
 
   return std::string("Action_") + std::to_string(action_id);
+}
+
+// Context-rich name that annotates play/buy actions with the concrete card.
+std::string ActionNames::NameWithCard(Action action_id,
+                                      int num_supply_piles,
+                                      const std::vector<CardName>& hand,
+                                      const CardName* supply_types) {
+  using namespace ActionIds;
+  auto base = Name(action_id, num_supply_piles);
+  auto cname = [](CardName cn) { return GetCardSpec(cn).name_; };
+  if (action_id < BuyBase()) {
+    int idx = static_cast<int>(action_id);
+    if (idx >= 0 && idx < static_cast<int>(hand.size())) {
+      base += std::string(" (") + cname(hand[idx]) + ")";
+    }
+  } else if (action_id >= BuyBase() && action_id < BuyBase() + num_supply_piles) {
+    int j = static_cast<int>(action_id - BuyBase());
+    if (j >= 0 && j < num_supply_piles) {
+      base += std::string(" (") + cname(supply_types[j]) + ")";
+    }
+  }
+  return base;
 }
 
 } // namespace dominion

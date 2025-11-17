@@ -267,19 +267,8 @@ std::string DominionState::ObservationString(int player) const {
     for (size_t i = 0; i < las.size(); ++i) {
       if (i) s += ", ";
       const Action a = las[i];
-      std::string a_str = FormatActionPair(a);
-      if (a < ActionIds::BuyBase()) {
-        int idx = static_cast<int>(a);
-        if (idx >= 0 && idx < static_cast<int>(ps_me.hand_.size())) {
-          a_str += " (" + card_name(ps_me.hand_[idx]) + ")";
-        }
-      } else if (a >= ActionIds::BuyBase() && a < ActionIds::BuyBase() + kNumSupplyPiles) {
-        int j = static_cast<int>(a) - ActionIds::BuyBase();
-        if (j >= 0 && j < kNumSupplyPiles) {
-          a_str += " (" + card_name(supply_types_[j]) + ")";
-        }
-      }
-      s += a_str;
+      auto detailed = ActionNames::NameWithCard(a, kNumSupplyPiles, ps_me.hand_, supply_types_.data());
+      s += std::to_string(static_cast<int>(a)) + ":" + detailed;
     }
   }
   return s;
@@ -301,21 +290,8 @@ std::string DominionState::InformationStateString(int player) const {
     for (size_t i = 0; i < las.size(); ++i) {
       if (i) s += ", ";
       const Action a = las[i];
-      std::string a_str = FormatActionPair(a);
-      const auto& ps_me = player_states_[player];
-      auto card_name = [](CardName cn) { return GetCardSpec(cn).name_; };
-      if (a < ActionIds::BuyBase()) {
-        int idx = static_cast<int>(a);
-        if (idx >= 0 && idx < static_cast<int>(ps_me.hand_.size())) {
-          a_str += " (" + card_name(ps_me.hand_[idx]) + ")";
-        }
-      } else if (a >= ActionIds::BuyBase() && a < ActionIds::BuyBase() + kNumSupplyPiles) {
-        int j = static_cast<int>(a) - ActionIds::BuyBase();
-        if (j >= 0 && j < kNumSupplyPiles) {
-          a_str += " (" + card_name(supply_types_[j]) + ")";
-        }
-      }
-      s += a_str;
+      auto detailed = ActionNames::NameWithCard(a, kNumSupplyPiles, player_states_[player].hand_, supply_types_.data());
+      s += std::to_string(static_cast<int>(a)) + ":" + detailed;
     }
   }
   s += "History: ";

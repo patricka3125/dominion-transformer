@@ -2,6 +2,8 @@
 #define OPEN_SPIEL_GAMES_DOMINION_ACTIONS_H_
 
 #include <string>
+#include <vector>
+#include "cards.hpp"
 
 #include "open_spiel/spiel.h"
 
@@ -36,6 +38,10 @@ namespace ActionIds {
 // to disambiguate buy actions.
 namespace ActionNames {
   std::string Name(Action action_id, int num_supply_piles);
+  std::string NameWithCard(Action action_id,
+                           int num_supply_piles,
+                           const std::vector<CardName>& hand,
+                           const CardName* supply_types);
 }
 
 } // namespace dominion
