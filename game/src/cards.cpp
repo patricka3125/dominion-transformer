@@ -379,6 +379,15 @@ std::vector<Action> PendingEffectLegalActions(const DominionState& state, int pl
       }
     }
   }
+  if (ps.pending_choice == PendingChoice::SelectUpToCardsFromBoard) {
+    for (int j = 0; j < kNumSupplyPiles; ++j) {
+      if (state.supply_piles_[j] <= 0) continue;
+      const Card& spec = GetCardSpec(state.supply_types_[j]);
+      if (spec.cost_ <= ps.pending_gain_max_cost) {
+        actions.push_back(ActionIds::GainSelect(j));
+      }
+    }
+  }
   std::sort(actions.begin(), actions.end());
   return actions;
 }

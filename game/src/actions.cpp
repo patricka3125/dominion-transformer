@@ -30,6 +30,11 @@ std::string ActionNames::Name(Action action_id, int num_supply_piles) {
     return std::string("GainSelect_") + std::to_string(j);
   }
 
+  if (action_id >= GainSelectBase() && action_id < GainSelectBase() + num_supply_piles) {
+    int j = static_cast<int>(action_id - GainSelectBase());
+    return std::string("GainSelect_") + std::to_string(j);
+  }
+
   return std::string("Action_") + std::to_string(action_id);
 }
 
