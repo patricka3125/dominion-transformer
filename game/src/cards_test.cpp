@@ -152,9 +152,9 @@ static void TestCellar() {
 
   ds->ApplyAction(hand_before - 1); // play Cellar
 
-  ds->ApplyAction(300 + 0); // discard first card
-  ds->ApplyAction(300 + 0); // discard next first card
-  ds->ApplyAction(399);     // finish, draw 2
+  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0)); // discard first card
+  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0)); // discard next first card
+  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelectFinish());     // finish, draw 2
 
   SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, 0), hand_before - 1);
   SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), actions_before);
@@ -175,7 +175,7 @@ static void TestCellarZeroDiscard() {
   int discard_before = DominionTestHarness::DiscardSize(ds, 0);
 
   ds->ApplyAction(hand_before - 1); // play Cellar
-  ds->ApplyAction(399);             // finish without discards
+  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelectFinish());             // finish without discards
 
   SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, 0), hand_before - 1);
   SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), actions_before);
@@ -196,13 +196,8 @@ static void TestCellarActionStrings() {
   ds->ApplyAction(hand_before - 1); // play Cellar
 
   auto actions = ds->LegalActions();
-  bool has_finish = false;
-  bool has_select0 = false;
-  for (auto a : actions) {
-    auto s = ds->ActionToString(ds->CurrentPlayer(), a);
-    if (s == "HandSelectFinish") has_finish = true;
-    if (s == "HandSelect_0") has_select0 = true;
-  }
+  bool has_finish = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::HandSelectFinish()) != actions.end();
+  bool has_select0 = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::HandSelect(0)) != actions.end();
   SPIEL_CHECK_TRUE(has_finish);
   SPIEL_CHECK_TRUE(has_select0);
 }
@@ -220,8 +215,8 @@ static void TestCellarOneDiscard() {
   int discard_before = DominionTestHarness::DiscardSize(ds, 0);
 
   ds->ApplyAction(hand_before - 1); // play Cellar
-  ds->ApplyAction(300 + 0);         // discard one
-  ds->ApplyAction(399);             // finish, draw one
+  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0));         // discard one
+  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelectFinish());             // finish, draw one
 
   SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, 0), hand_before - 1);
   SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), actions_before);
@@ -242,10 +237,10 @@ static void TestCellarThreeDiscards() {
   int discard_before = DominionTestHarness::DiscardSize(ds, 0);
 
   ds->ApplyAction(hand_before - 1); // play Cellar
-  ds->ApplyAction(300 + 0);         // discard #1
-  ds->ApplyAction(300 + 0);         // discard #2 (index shifts)
-  ds->ApplyAction(300 + 0);         // discard #3
-  ds->ApplyAction(399);             // finish, draw three
+  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0));         // discard #1
+  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0));         // discard #2 (index shifts)
+  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0));         // discard #3
+  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelectFinish());             // finish, draw three
 
   SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, 0), hand_before - 1);
   SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), actions_before);
@@ -261,16 +256,10 @@ static void TestDiscardFinishVisibility() {
   auto* ds = dynamic_cast<DominionState*>(state.get());
   SPIEL_CHECK_TRUE(ds != nullptr);
 
-  // Before playing any discard-effect card, DiscardFinish must not be offered.
+  // Before playing any discard-effect card, HandSelectFinish must not be offered.
   {
     auto actions = ds->LegalActions();
-    bool has_finish = false;
-    for (auto a : actions) {
-      if (ds->ActionToString(ds->CurrentPlayer(), a) == "HandSelectFinish") {
-        has_finish = true;
-        break;
-      }
-    }
+    bool has_finish = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::HandSelectFinish()) != actions.end();
     SPIEL_CHECK_FALSE(has_finish);
   }
 
@@ -280,16 +269,12 @@ static void TestDiscardFinishVisibility() {
   int hand_before = DominionTestHarness::HandSize(ds, 0);
   ds->ApplyAction(hand_before - 1);
 
-  // DiscardFinish should now be present.
+  // HandSelectFinish should now be present.
   open_spiel::Action finish_id = -1;
   {
     auto actions = ds->LegalActions();
-    for (auto a : actions) {
-      if (ds->ActionToString(ds->CurrentPlayer(), a) == "HandSelectFinish") {
-        finish_id = a;
-        break;
-      }
-    }
+    auto it = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::HandSelectFinish());
+    if (it != actions.end()) finish_id = *it;
     SPIEL_CHECK_TRUE(finish_id != -1);
   }
 
@@ -297,13 +282,7 @@ static void TestDiscardFinishVisibility() {
   ds->ApplyAction(finish_id);
   {
     auto actions = ds->LegalActions();
-    bool has_finish = false;
-    for (auto a : actions) {
-      if (ds->ActionToString(ds->CurrentPlayer(), a) == "HandSelectFinish") {
-        has_finish = true;
-        break;
-      }
-    }
+    bool has_finish = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::HandSelectFinish()) != actions.end();
     SPIEL_CHECK_FALSE(has_finish);
   }
 }
@@ -359,7 +338,7 @@ static void TestChapelTrashUpToFour() {
 
   // Trash four cards via successive hand selections.
   for (int k = 0; k < 4; ++k) {
-    ds->ApplyAction(300 + 0);
+    ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0));
   }
 
   // After trashing 4, effect ends automatically and no cards were added to discard.
@@ -388,7 +367,7 @@ static void TestRemodelTrashThenGain() {
 
   // Trash the previously appended Estate (now last card in hand).
   int hand_after_play = DominionTestHarness::HandSize(ds, 0);
-  ds->ApplyAction(300 + (hand_after_play - 1));
+  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(hand_after_play - 1));
 
   // Gain a Smithy (cost 4 <= 2 + 2) via board selection.
   open_spiel::Action gain_smithy = -1;
@@ -426,13 +405,13 @@ static void TestMilitiaOpponentDiscardsToThree() {
     bool has_finish = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::HandSelectFinish()) != la.end();
     SPIEL_CHECK_FALSE(has_finish);
   }
-  ds->ApplyAction(300 + 0);
+  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0));
   {
     auto la = ds->LegalActions();
     bool has_finish = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::HandSelectFinish()) != la.end();
     SPIEL_CHECK_FALSE(has_finish);
   }
-  ds->ApplyAction(300 + 0);
+  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0));
 
   // After discarding, turn should return to player 0.
   SPIEL_CHECK_EQ(ds->CurrentPlayer(), 0);

@@ -13,24 +13,30 @@ namespace dominion {
 // Centralized action ID registry. Avoids magic numbers by providing
 // clearly named constructors and queries for action IDs used by Dominion.
 namespace ActionIds {
+  // Maximum possible hand size cap used for indexing/select ranges.
+  inline int MaxHandSize() { return 250; }
+  // Maximum possible supply piles in a legal game (base set).
+  inline int MaxSupplyPiles() {return 17;}
   // Hand play is indexed directly by hand position during phases.
+  // Theoretical hand size limit - base expansion - = 247 (rnd to 250). (All but one of each pile)
   inline Action PlayHandIndex(int i) { return static_cast<Action>(i); }
+  
+  // Generic hand selection effect actions.
+  inline int HandSelectBase() { return MaxHandSize(); }
+  inline Action HandSelect(int i) { return static_cast<Action>(HandSelectBase() + i); }
+  inline Action HandSelectFinish() { return static_cast<Action>(HandSelectBase() + MaxHandSize()); }
+  
+  // Phase control actions.
+  inline Action EndActions() { return static_cast<Action>(HandSelectFinish()+1); }
 
   // Buying from supply uses a base offset plus supply pile index.
-  inline int BuyBase() { return 100; }
+  inline int BuyBase() { return EndActions()+1; }
   inline Action BuyFromSupply(int j) { return static_cast<Action>(BuyBase() + j); }
+  inline Action EndBuy() { return static_cast<Action>(BuyBase()+MaxSupplyPiles()); }
 
-  // Phase control actions.
-  inline Action EndActions() { return static_cast<Action>(200); }
-  inline Action EndBuy() { return static_cast<Action>(201); }
-
-  // Generic hand selection effect actions.
-  inline int HandSelectBase() { return 300; }
-  inline Action HandSelect(int i) { return static_cast<Action>(HandSelectBase() + i); }
-  inline Action HandSelectFinish() { return static_cast<Action>(399); }
 
   // Generic gain-from-supply selection actions (effect-level).
-  inline int GainSelectBase() { return 500; }
+  inline int GainSelectBase() { return EndBuy()+1; }
   inline Action GainSelect(int j) { return static_cast<Action>(GainSelectBase() + j); }
 }
 

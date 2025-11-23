@@ -353,7 +353,7 @@ std::vector<Action> PendingEffectLegalActions(const DominionState& state, int pl
   std::vector<Action> actions;
   const auto& ps = state.player_states_[player];
   if (ps.pending_choice == PendingChoice::SelectUpToCardsFromHand) {
-    for (int i = 0; i < static_cast<int>(ps.hand_.size()) && i < 100; ++i) {
+    for (int i = 0; i < static_cast<int>(ps.hand_.size()); ++i) {
       int orig_idx = (i < static_cast<int>(ps.pending_hand_original_indices.size())) ? ps.pending_hand_original_indices[i] : i;
       if (orig_idx > ps.pending_last_selected_original_index) {
         if (!ps.pending_select_only_action) {

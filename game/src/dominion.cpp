@@ -201,7 +201,7 @@ std::vector<Action> DominionState::LegalActions() const {
   if (phase_ == Phase::actionPhase) {
     if (actions_ > 0) {
       std::array<bool, kNumCardTypes> seen{};
-      for (int i = 0; i < static_cast<int>(ps.hand_.size()) && i < 100; ++i) {
+      for (int i = 0; i < static_cast<int>(ps.hand_.size()); ++i) {
         CardName cn = ps.hand_[i];
         const Card &spec = GetCardSpec(cn);
         if (HasType(spec, CardType::ACTION)) {
@@ -216,7 +216,7 @@ std::vector<Action> DominionState::LegalActions() const {
     actions.push_back(ActionIds::EndActions());
   } else if (phase_ == Phase::buyPhase) {
     std::array<bool, kNumCardTypes> seen{};
-    for (int i = 0; i < static_cast<int>(ps.hand_.size()) && i < 100; ++i) {
+    for (int i = 0; i < static_cast<int>(ps.hand_.size()); ++i) {
       CardName cn = ps.hand_[i];
       const Card &spec = GetCardSpec(cn);
       if (HasType(spec, CardType::TREASURE)) {
