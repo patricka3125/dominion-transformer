@@ -71,9 +71,9 @@ bool Card::GainFromBoardHandler(DominionState& st, int pl, Action action_id) {
     int j = static_cast<int>(action_id - ActionIds::GainSelectBase());
     if (j >= 0 && j < kNumSupplyPiles) {
       if (st.supply_piles_[j] > 0) {
-        const Card& spec = GetCardSpec(st.supply_types_[j]);
+        const Card& spec = GetCardSpec(static_cast<CardName>(j));
         if (spec.cost_ <= p.pending_gain_max_cost) {
-          st.player_states_[pl].discard_.push_back(st.supply_types_[j]);
+          st.player_states_[pl].discard_.push_back(static_cast<CardName>(j));
           st.supply_piles_[j] -= 1;
           p.ClearBoardSelection();
           p.pending_choice = PendingChoice::None;
@@ -177,12 +177,7 @@ bool Card::MilitiaOpponentDiscardHandler(DominionState& st, int pl, Action actio
 // Witch attack effect: each opponent gains a Curse to their discard if available.
 void Card::WitchAttackGiveCurse(DominionState& st, int player) {
   int opp = 1 - player;
-  // Find Curse pile.
-  int curse_idx = -1;
-  for (int j = 0; j < kNumSupplyPiles; ++j) {
-    if (st.supply_types_[j] == CardName::CARD_Curse) { curse_idx = j; break; }
-  }
-  if (curse_idx == -1) return;
+  int curse_idx = static_cast<int>(CardName::CARD_Curse);
   if (st.supply_piles_[curse_idx] > 0) {
     st.player_states_[opp].discard_.push_back(CardName::CARD_Curse);
     st.supply_piles_[curse_idx] -= 1;
@@ -373,7 +368,7 @@ std::vector<Action> PendingEffectLegalActions(const DominionState& state, int pl
   if (ps.pending_choice == PendingChoice::SelectUpToCardsFromBoard) {
     for (int j = 0; j < kNumSupplyPiles; ++j) {
       if (state.supply_piles_[j] <= 0) continue;
-      const Card& spec = GetCardSpec(state.supply_types_[j]);
+      const Card& spec = GetCardSpec(static_cast<CardName>(j));
       if (spec.cost_ <= ps.pending_gain_max_cost) {
         actions.push_back(ActionIds::GainSelect(j));
       }

@@ -18,8 +18,8 @@ namespace dominion {
 
 inline constexpr int kNumPlayers = 2;
 inline constexpr int kDominionMaxDistinctActions = 256;
-inline constexpr int kNumCardTypes = 26;
-inline constexpr int kNumSupplyPiles = 17; // 7 base piles + 10 kingdom piles
+inline constexpr int kNumCardTypes = 33; // total card enumerators
+inline constexpr int kNumSupplyPiles = kNumCardTypes; // supply indexed by CardName
 
 // Outcome of the game.
 enum class Outcome {
@@ -191,8 +191,8 @@ private:
   Phase phase_ = Phase::actionPhase;
   int last_player_to_go_ = -1;
 
-  std::array<int, kNumSupplyPiles> supply_piles_{}; // counts per supply pile
-  std::array<CardName, kNumSupplyPiles> supply_types_{}; // type per pile
+  std::array<int, kNumSupplyPiles> supply_piles_{}; // counts per supply pile (indexed by CardName)
+  std::array<int, kNumSupplyPiles> initial_supply_piles_{}; // initial counts for terminal checks, represents the kingdom.
   std::vector<CardName> play_area_{};
   std::array<PlayerState, kNumPlayers> player_states_{};
 

@@ -5,6 +5,7 @@
 #include <vector>
 #include "cards.hpp"
 
+#include "dominion.hpp"
 #include "open_spiel/spiel.h"
 
 namespace open_spiel {
@@ -15,8 +16,8 @@ namespace dominion {
 namespace ActionIds {
   // Maximum possible hand size cap used for indexing/select ranges.
   inline int MaxHandSize() { return 250; }
-  // Maximum possible supply piles in a legal game (base set).
-  inline int MaxSupplyPiles() {return 17;}
+  // Maximum supply piles equals number of CardName enumerators.
+  inline int MaxSupplyPiles() { return kNumSupplyPiles; }
   // Hand play is indexed directly by hand position during phases.
   // Theoretical hand size limit - base expansion - = 247 (rnd to 250). (All but one of each pile)
   inline Action PlayHandIndex(int i) { return static_cast<Action>(i); }
@@ -46,8 +47,7 @@ namespace ActionNames {
   std::string Name(Action action_id, int num_supply_piles);
   std::string NameWithCard(Action action_id,
                            int num_supply_piles,
-                           const std::vector<CardName>& hand,
-                           const CardName* supply_types);
+                           const std::vector<CardName>& hand);
 }
 
 } // namespace dominion

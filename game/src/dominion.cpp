@@ -126,35 +126,22 @@ DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
   // Shuffle initial decks using game RNG for reproducibility.
   const auto *dom_game = dynamic_cast<const DominionGame *>(game_.get());
   std::mt19937 *rng = dom_game ? dom_game->rng() : nullptr;
-  // Supply types: base and kingdom piles
-  supply_types_[0] = CardName::CARD_Copper;
-  supply_types_[1] = CardName::CARD_Silver;
-  supply_types_[2] = CardName::CARD_Gold;
-  supply_types_[3] = CardName::CARD_Estate;
-  supply_types_[4] = CardName::CARD_Duchy;
-  supply_types_[5] = CardName::CARD_Province;
-  supply_types_[6] = CardName::CARD_Curse;
-  supply_types_[7] = CardName::CARD_Cellar;
-  supply_types_[8] = CardName::CARD_Market;
-  supply_types_[9] = CardName::CARD_Militia;
-  supply_types_[10] = CardName::CARD_Mine;
-  supply_types_[11] = CardName::CARD_Moat;
-  supply_types_[12] = CardName::CARD_Remodel;
-  supply_types_[13] = CardName::CARD_Smithy;
-  supply_types_[14] = CardName::CARD_Village;
-  supply_types_[15] = CardName::CARD_Workshop;
-  supply_types_[16] = CardName::CARD_Festival;
 
-  // Supply counts
-  supply_piles_[0] = 60;
-  supply_piles_[1] = 40;
-  supply_piles_[2] = 30;
-  supply_piles_[3] = 8;
-  supply_piles_[4] = 8;
-  supply_piles_[5] = 8;
-  supply_piles_[6] = 10;
-  for (int i = 7; i < kNumSupplyPiles; ++i)
-    supply_piles_[i] = 10;
+  // Initialize supply piles indexed by CardName; non-board cards are 0.
+  for (int j = 0; j < kNumSupplyPiles; ++j) supply_piles_[j] = 0;
+  supply_piles_[static_cast<int>(CardName::CARD_Copper)] = 60;
+  supply_piles_[static_cast<int>(CardName::CARD_Silver)] = 40;
+  supply_piles_[static_cast<int>(CardName::CARD_Gold)] = 30;
+  supply_piles_[static_cast<int>(CardName::CARD_Estate)] = 8;
+  supply_piles_[static_cast<int>(CardName::CARD_Duchy)] = 8;
+  supply_piles_[static_cast<int>(CardName::CARD_Province)] = 8;
+  supply_piles_[static_cast<int>(CardName::CARD_Curse)] = 10;
+  std::array<CardName, 10> kingdom = {CardName::CARD_Cellar,  CardName::CARD_Market,  CardName::CARD_Militia,
+                                      CardName::CARD_Mine,    CardName::CARD_Moat,    CardName::CARD_Remodel,
+                                      CardName::CARD_Smithy,  CardName::CARD_Village, CardName::CARD_Workshop,
+                                      CardName::CARD_Festival};
+  for (CardName cn : kingdom) supply_piles_[static_cast<int>(cn)] = 10;
+  initial_supply_piles_ = supply_piles_;
 
   // Initial decks and hands
   for (int p = 0; p < kNumPlayers; ++p) {
@@ -229,11 +216,9 @@ std::vector<Action> DominionState::LegalActions() const {
     }
     if (buys_ > 0) {
       for (int j = 0; j < kNumSupplyPiles; ++j) {
-        if (supply_piles_[j] <= 0)
-          continue;
-        const Card &spec = GetCardSpec(supply_types_[j]);
-        if (coins_ >= spec.cost_)
-          actions.push_back(ActionIds::BuyFromSupply(j));
+        if (supply_piles_[j] <= 0) continue;
+        const Card &spec = GetCardSpec(static_cast<CardName>(j));
+        if (coins_ >= spec.cost_) actions.push_back(ActionIds::BuyFromSupply(j));
       }
     }
     actions.push_back(ActionIds::EndBuy());
@@ -245,8 +230,7 @@ std::vector<Action> DominionState::LegalActions() const {
 std::string DominionState::ActionToString(Player /*player*/,
                                           Action action_id) const {
   const auto &ps_act = player_states_[current_player_];
-  return ActionNames::NameWithCard(action_id, kNumSupplyPiles, ps_act.hand_,
-                                   supply_types_.data());
+  return ActionNames::NameWithCard(action_id, kNumSupplyPiles, ps_act.hand_);
 }
 
 // Per-player observation string: only include public info and the player's own
@@ -288,12 +272,14 @@ std::string DominionState::ObservationString(int player) const {
 
   // Public supply counts.
   s += "Supply: ";
+  bool first_supply = true;
   for (int i = 0; i < kNumSupplyPiles; ++i) {
-    if (i)
-      s += ", ";
+    if (initial_supply_piles_[i] == 0) continue;
+    if (!first_supply) s += ", ";
+    first_supply = false;
     s += std::to_string(i);
     s += ":";
-    s += card_name(supply_types_[i]);
+    s += card_name(static_cast<CardName>(i));
     s += "=" + std::to_string(supply_piles_[i]);
   }
   s += "\n";
@@ -328,11 +314,10 @@ std::string DominionState::ObservationString(int player) const {
         if (idx >= 0 && idx < static_cast<int>(ps_me.hand_.size())) {
           a_str += " (" + card_name(ps_me.hand_[idx]) + ")";
         }
-      } else if (a >= ActionIds::BuyBase() &&
-                 a < ActionIds::BuyBase() + kNumSupplyPiles) {
+      } else if (a >= ActionIds::BuyBase() && a < ActionIds::BuyBase() + kNumSupplyPiles) {
         int j = static_cast<int>(a) - ActionIds::BuyBase();
         if (j >= 0 && j < kNumSupplyPiles) {
-          a_str += " (" + card_name(supply_types_[j]) + ")";
+          a_str += " (" + card_name(static_cast<CardName>(j)) + ")";
         }
       }
       s += a_str;
@@ -361,14 +346,12 @@ std::string DominionState::ToString() const {
 }
 
 bool DominionState::IsTerminal() const {
+  if (supply_piles_[static_cast<int>(CardName::CARD_Province)] == 0) return true;
   int empty = 0;
-  for (int i = 0; i < kNumSupplyPiles; ++i)
-    empty += (supply_piles_[i] == 0);
-  if (supply_piles_[5] == 0)
-    return true;
-  if (empty >= 3)
-    return true;
-  return false;
+  for (int i = 0; i < kNumSupplyPiles; ++i) {
+    if (initial_supply_piles_[i] > 0 && supply_piles_[i] == 0) empty += 1;
+  }
+  return empty >= 3;
 }
 
 static int CountVP(const PlayerState &ps) {
@@ -492,11 +475,11 @@ void DominionState::DoApplyAction(Action action_id) {
         action_id < ActionIds::BuyBase() + kNumSupplyPiles && buys_ > 0) {
       int j = action_id - ActionIds::BuyBase();
       if (supply_piles_[j] > 0) {
-        const Card &spec = GetCardSpec(supply_types_[j]);
+        const Card &spec = GetCardSpec(static_cast<CardName>(j));
         if (coins_ >= spec.cost_) {
           coins_ -= spec.cost_;
           buys_ -= 1;
-          ps.discard_.push_back(supply_types_[j]);
+          ps.discard_.push_back(static_cast<CardName>(j));
           supply_piles_[j] -= 1;
           if (buys_ == 0) {
             EndBuyCleanup();

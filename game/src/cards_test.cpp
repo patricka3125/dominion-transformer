@@ -297,14 +297,15 @@ static void TestWorkshopGain() {
   DominionTestHarness::SetPhase(ds, Phase::actionPhase);
   int hand_before = DominionTestHarness::HandSize(ds, 0);
   int discard_before = DominionTestHarness::DiscardSize(ds, 0);
-  int smithy_pile_before = DominionTestHarness::SupplyCount(ds, 13); // Smithy index
+  int smithy_idx = static_cast<int>(CardName::CARD_Smithy);
+  int smithy_pile_before = DominionTestHarness::SupplyCount(ds, smithy_idx);
 
   ds->ApplyAction(hand_before - 1); // play Workshop
 
-  // Find GainSelect for Smithy (index 13, cost 4) and apply it.
+  // Find GainSelect for Smithy (enumerator index, cost 4) and apply it.
   open_spiel::Action gain_smithy = -1;
   for (auto a : ds->LegalActions()) {
-    if (ds->ActionToString(ds->CurrentPlayer(), a) == "GainSelect_13") {
+    if (a == open_spiel::dominion::ActionIds::GainSelect(smithy_idx)) {
       gain_smithy = a;
       break;
     }
@@ -313,7 +314,7 @@ static void TestWorkshopGain() {
   ds->ApplyAction(gain_smithy);
 
   SPIEL_CHECK_EQ(DominionTestHarness::DiscardSize(ds, 0), discard_before + 1);
-  SPIEL_CHECK_EQ(DominionTestHarness::SupplyCount(ds, 13), smithy_pile_before - 1);
+  SPIEL_CHECK_EQ(DominionTestHarness::SupplyCount(ds, smithy_idx), smithy_pile_before - 1);
 }
 
 static void TestChapelTrashUpToFour() {
@@ -360,7 +361,8 @@ static void TestRemodelTrashThenGain() {
   DominionTestHarness::SetPhase(ds, Phase::actionPhase);
   int hand_before = DominionTestHarness::HandSize(ds, 0);
   int discard_before = DominionTestHarness::DiscardSize(ds, 0);
-  int smithy_pile_before = DominionTestHarness::SupplyCount(ds, 13);
+  int smithy_idx2 = static_cast<int>(CardName::CARD_Smithy);
+  int smithy_pile_before = DominionTestHarness::SupplyCount(ds, smithy_idx2);
 
   // Play Remodel (last card in hand).
   ds->ApplyAction(hand_before - 1);
@@ -372,7 +374,7 @@ static void TestRemodelTrashThenGain() {
   // Gain a Smithy (cost 4 <= 2 + 2) via board selection.
   open_spiel::Action gain_smithy = -1;
   for (auto a : ds->LegalActions()) {
-    if (ds->ActionToString(ds->CurrentPlayer(), a) == "GainSelect_13") {
+    if (a == open_spiel::dominion::ActionIds::GainSelect(smithy_idx2)) {
       gain_smithy = a;
       break;
     }
@@ -381,7 +383,7 @@ static void TestRemodelTrashThenGain() {
   ds->ApplyAction(gain_smithy);
 
   SPIEL_CHECK_EQ(DominionTestHarness::DiscardSize(ds, 0), discard_before + 1);
-  SPIEL_CHECK_EQ(DominionTestHarness::SupplyCount(ds, 13), smithy_pile_before - 1);
+  SPIEL_CHECK_EQ(DominionTestHarness::SupplyCount(ds, smithy_idx2), smithy_pile_before - 1);
 }
 
 static void TestMilitiaOpponentDiscardsToThree() {
@@ -428,7 +430,8 @@ static void TestWitchGivesCurseToOpponent() {
   DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Witch);
   DominionTestHarness::SetPhase(ds, Phase::actionPhase);
   int hand_before_p0 = DominionTestHarness::HandSize(ds, 0);
-  int curse_supply_before = DominionTestHarness::SupplyCount(ds, 6);
+  int curse_idx = static_cast<int>(CardName::CARD_Curse);
+  int curse_supply_before = DominionTestHarness::SupplyCount(ds, curse_idx);
   int opp_discard_before = DominionTestHarness::DiscardSize(ds, 1);
 
   ds->ApplyAction(hand_before_p0 - 1);
@@ -437,7 +440,7 @@ static void TestWitchGivesCurseToOpponent() {
   SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, 0), hand_before_p0 + 1);
   // Opponent gains a Curse if available.
   SPIEL_CHECK_EQ(DominionTestHarness::DiscardSize(ds, 1), opp_discard_before + 1);
-  SPIEL_CHECK_EQ(DominionTestHarness::SupplyCount(ds, 6), curse_supply_before - 1);
+  SPIEL_CHECK_EQ(DominionTestHarness::SupplyCount(ds, curse_idx), curse_supply_before - 1);
 }
 
 static void TestThroneRoomPlaysCardTwiceEffectOnlySecond() {

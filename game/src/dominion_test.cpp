@@ -19,7 +19,7 @@ struct DominionTestHarness {
     return s->supply_piles_;
   }
   static CardName SupplyType(DominionState* s, int idx) {
-    return s->supply_types_[idx];
+    (void)s; return static_cast<CardName>(idx);
   }
   static int DeckSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].deck_.size()); }
   static int HandSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].hand_.size()); }
@@ -229,18 +229,38 @@ static void TestInitialConstructorState() {
   // Supply types and counts.
   const auto& counts = DominionTestHarness::SupplyCounts(ds);
   SPIEL_CHECK_EQ(static_cast<int>(counts.size()), kNumSupplyPiles);
-  SPIEL_CHECK_EQ(counts[0], 60);  // Copper
-  SPIEL_CHECK_EQ(counts[1], 40);  // Silver
-  SPIEL_CHECK_EQ(counts[2], 30);  // Gold
-  SPIEL_CHECK_EQ(counts[3], 8);   // Estate
-  SPIEL_CHECK_EQ(counts[4], 8);   // Duchy
-  SPIEL_CHECK_EQ(counts[5], 8);   // Province
-  SPIEL_CHECK_EQ(counts[6], 10);  // Curse
+  SPIEL_CHECK_EQ(counts[static_cast<int>(CardName::CARD_Copper)], 60);
+  SPIEL_CHECK_EQ(counts[static_cast<int>(CardName::CARD_Silver)], 40);
+  SPIEL_CHECK_EQ(counts[static_cast<int>(CardName::CARD_Gold)], 30);
+  SPIEL_CHECK_EQ(counts[static_cast<int>(CardName::CARD_Estate)], 8);
+  SPIEL_CHECK_EQ(counts[static_cast<int>(CardName::CARD_Duchy)], 8);
+  SPIEL_CHECK_EQ(counts[static_cast<int>(CardName::CARD_Province)], 8);
+  SPIEL_CHECK_EQ(counts[static_cast<int>(CardName::CARD_Curse)], 10);
+  // Selected kingdom piles should be initialized to 10; others 0.
+  auto is_selected = [](CardName cn){
+    switch (cn) {
+      case CardName::CARD_Cellar:
+      case CardName::CARD_Market:
+      case CardName::CARD_Militia:
+      case CardName::CARD_Mine:
+      case CardName::CARD_Moat:
+      case CardName::CARD_Remodel:
+      case CardName::CARD_Smithy:
+      case CardName::CARD_Village:
+      case CardName::CARD_Workshop:
+      case CardName::CARD_Festival:
+        return true;
+      default: return false;
+    }
+  };
   for (int i = 7; i < kNumSupplyPiles; ++i) {
-    SPIEL_CHECK_EQ(counts[i], 10);
+    CardName cn = static_cast<CardName>(i);
+    if (is_selected(cn)) {
+      SPIEL_CHECK_EQ(counts[i], 10);
+    } else {
+      SPIEL_CHECK_EQ(counts[i], 0);
+    }
   }
-  SPIEL_CHECK_EQ(static_cast<int>(DominionTestHarness::SupplyType(ds, 0)), static_cast<int>(CardName::CARD_Copper));
-  SPIEL_CHECK_EQ(static_cast<int>(DominionTestHarness::SupplyType(ds, 3)), static_cast<int>(CardName::CARD_Estate));
 
   // Player observation states exist and reflect deck/discard sizes via pointers.
   for (int p = 0; p < kNumPlayers; ++p) {
@@ -307,7 +327,8 @@ static void TestAutoEndOnLastBuy() {
   // Ensure Copper (cost 0) is buyable with 1 buy.
   int turn_before = DominionTestHarness::TurnNumber(ds);
   int player_before = DominionTestHarness::CurrentPlayer(ds);
-  ds->ApplyAction(open_spiel::dominion::ActionIds::BuyFromSupply(0));
+  int copper_idx = static_cast<int>(open_spiel::dominion::CardName::CARD_Copper);
+  ds->ApplyAction(open_spiel::dominion::ActionIds::BuyFromSupply(copper_idx));
   // After spending last buy, turn should auto-end.
   SPIEL_CHECK_EQ(DominionTestHarness::TurnNumber(ds), turn_before + 1);
   SPIEL_CHECK_EQ(DominionTestHarness::CurrentPlayer(ds), 1 - player_before);
