@@ -34,15 +34,14 @@ std::string ActionNames::Name(Action action_id, int num_supply_piles) {
 
 // Context-rich name that annotates play/buy actions with the concrete card.
 std::string ActionNames::NameWithCard(Action action_id,
-                                      int num_supply_piles,
-                                      const std::vector<CardName>& hand) {
+                                      int num_supply_piles) {
   using namespace ActionIds;
   auto base = Name(action_id, num_supply_piles);
   auto cname = [](CardName cn) { return GetCardSpec(cn).name_; };
-  if (action_id < BuyBase()) {
+  if (action_id < MaxHandSize()) {
     int idx = static_cast<int>(action_id);
-    if (idx >= 0 && idx < static_cast<int>(hand.size())) {
-      base += std::string(" (") + cname(hand[idx]) + ")";
+    if (idx >= 0 && idx < kNumSupplyPiles) {
+      base += std::string(" (") + cname(static_cast<CardName>(idx)) + ")";
     }
   } else if (action_id >= BuyBase() && action_id < BuyBase() + num_supply_piles) {
     int j = static_cast<int>(action_id - BuyBase());

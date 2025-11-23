@@ -22,7 +22,10 @@ struct DominionTestHarness {
     (void)s; return static_cast<CardName>(idx);
   }
   static int DeckSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].deck_.size()); }
-  static int HandSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].hand_.size()); }
+  static int HandSize(DominionState* s, int player) {
+    int cnt = 0; for (int j=0;j<kNumSupplyPiles;++j) cnt += s->player_states_[player].hand_counts_[j];
+    return cnt;
+  }
   static int DiscardSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].discard_.size()); }
   static bool HasObsState(DominionState* s, int player) { return s->player_states_[player].obs_state != nullptr; }
   static const ObservationState* Obs(DominionState* s, int player) { return s->player_states_[player].obs_state.get(); }
@@ -34,14 +37,15 @@ struct DominionTestHarness {
   static int TurnNumber(DominionState* s) { return s->turn_number_; }
   static void ResetPlayer(DominionState* s, int player) {
     s->player_states_[player].deck_.clear();
-    s->player_states_[player].hand_.clear();
+    s->player_states_[player].hand_counts_.fill(0);
     s->player_states_[player].discard_.clear();
   }
   static void AddCardToDeck(DominionState* s, int player, CardName card) {
     s->player_states_[player].deck_.push_back(card);
   }
   static void AddCardToHand(DominionState* s, int player, CardName card) {
-    s->player_states_[player].hand_.push_back(card);
+    int idx = static_cast<int>(card);
+    if (idx >= 0 && idx < kNumSupplyPiles) s->player_states_[player].hand_counts_[idx] += 1;
   }
   static void AddCardToDiscard(DominionState* s, int player, CardName card) {
     s->player_states_[player].discard_.push_back(card);
@@ -50,8 +54,8 @@ struct DominionTestHarness {
     s->supply_piles_[5] = 0; // Province index
   }
   // Returns a copy of the current hand for verification.
-  static std::vector<CardName> Hand(DominionState* s, int player) {
-    return s->player_states_[player].hand_;
+  static std::array<int, kNumSupplyPiles> Hand(DominionState* s, int player) {
+    return s->player_states_[player].hand_counts_;
   }
 };
 
@@ -183,7 +187,8 @@ static void TestDeterministicRNGSerialization() {
 
   ds->DrawCardsFor(0, 5);
   auto hand_first = DominionTestHarness::Hand(ds, 0);
-  SPIEL_CHECK_EQ(static_cast<int>(hand_first.size()), 5);
+  int sum_first = 0; for (int j=0;j<kNumSupplyPiles;++j) sum_first += hand_first[j];
+  SPIEL_CHECK_EQ(sum_first, 5);
 
   // Reset to identical scenario and restore RNG state; draw order must match.
   game->SetRNGState(rng_state);
@@ -195,9 +200,10 @@ static void TestDeterministicRNGSerialization() {
   DominionTestHarness::AddCardToDiscard(ds, 0, CardName::CARD_Duchy);
   ds->DrawCardsFor(0, 5);
   auto hand_second = DominionTestHarness::Hand(ds, 0);
-  SPIEL_CHECK_EQ(static_cast<int>(hand_second.size()), 5);
-  for (int i = 0; i < 5; ++i) {
-    SPIEL_CHECK_EQ(static_cast<int>(hand_first[i]), static_cast<int>(hand_second[i]));
+  int sum_second = 0; for (int j=0;j<kNumSupplyPiles;++j) sum_second += hand_second[j];
+  SPIEL_CHECK_EQ(sum_second, 5);
+  for (int j = 0; j < kNumSupplyPiles; ++j) {
+    SPIEL_CHECK_EQ(hand_first[j], hand_second[j]);
   }
 
   // Sanity check: a different seed should produce a different order.
@@ -213,10 +219,10 @@ static void TestDeterministicRNGSerialization() {
   DominionTestHarness::AddCardToDiscard(ds_c, 0, CardName::CARD_Duchy);
   ds_c->DrawCardsFor(0, 5);
   auto hand_c = DominionTestHarness::Hand(ds_c, 0);
-  SPIEL_CHECK_EQ(static_cast<int>(hand_c.size()), 5);
-  bool any_diff = false;
-  for (int i = 0; i < 5; ++i) any_diff |= (hand_first[i] != hand_c[i]);
-  SPIEL_CHECK_TRUE(any_diff);
+  int sum_c = 0; for (int j=0;j<kNumSupplyPiles;++j) sum_c += hand_c[j];
+  SPIEL_CHECK_EQ(sum_c, 5);
+  // With count-based hand representation, order differences are not observable
+  // in observation; validate only total counts.
 }
 
 // Verify initial constructor invariants for DominionState.

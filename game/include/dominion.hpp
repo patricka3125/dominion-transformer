@@ -44,36 +44,33 @@ enum class PendingChoice {
 // ObservationState holds references to a player's containers for observation.
 // Opponent-known counts remain aggregated to preserve imperfect information.
 struct ObservationState {
-  std::vector<CardName> &player_hand;
+  std::array<int, kNumSupplyPiles> &player_hand_counts;
   std::vector<CardName> &player_deck;
   std::vector<CardName> &player_discard;
-  std::map<CardName, int> opponent_known_counts; // combined known set of
-                                                 // opponent's hand+deck+discard
+  std::map<CardName, int> opponent_known_counts; // combined known set of opponent's hand+deck+discard
 
-  ObservationState(std::vector<CardName> &hand, std::vector<CardName> &deck,
+  ObservationState(std::array<int, kNumSupplyPiles> &hand_counts,
+                   std::vector<CardName> &deck,
                    std::vector<CardName> &discard)
-      : player_hand(hand), player_deck(deck), player_discard(discard) {}
+      : player_hand_counts(hand_counts), player_deck(deck), player_discard(discard) {}
   ObservationState(const ObservationState &other) = default;
 
-  // Returns known counts by distinct card for the player's deck.
   std::map<CardName, int> KnownDeckCounts() const {
     std::map<CardName, int> out;
-    for (auto cn : player_deck)
-      out[cn] += 1;
+    for (auto cn : player_deck) out[cn] += 1;
     return out;
   }
-  // Returns known counts by distinct card for the player's discard.
   std::map<CardName, int> KnownDiscardCounts() const {
     std::map<CardName, int> out;
-    for (auto cn : player_discard)
-      out[cn] += 1;
+    for (auto cn : player_discard) out[cn] += 1;
     return out;
   }
+
 };
 
 struct PlayerState {
   std::vector<CardName> deck_;
-  std::vector<CardName> hand_;
+  std::array<int, kNumSupplyPiles> hand_counts_{};
   std::vector<CardName> discard_;
   std::vector<Action> history_;
   PendingChoice pending_choice = PendingChoice::None;
@@ -94,20 +91,18 @@ struct PlayerState {
   // Stable-index selection support for ascending-order constraint during
   // discard effects. Maps current hand indices to original indices at effect
   // start; updated on selection.
-  std::vector<int> pending_hand_original_indices;
-  int pending_last_selected_original_index = -1;
+  int pending_last_selected_original_index = -1; // last selected enumerator id
   std::unique_ptr<EffectNode> effect_head; // head of pending effect linked list
   std::unique_ptr<ObservationState> obs_state; // per-player observation state
 
   PlayerState() = default;
   PlayerState(const PlayerState &other)
-      : deck_(other.deck_), hand_(other.hand_), discard_(other.discard_),
+      : deck_(other.deck_), hand_counts_(other.hand_counts_), discard_(other.discard_),
         history_(other.history_), pending_choice(other.pending_choice),
         pending_discard_count(other.pending_discard_count),
         pending_draw_equals_discard(other.pending_draw_equals_discard),
         pending_gain_max_cost(other.pending_gain_max_cost),
         pending_target_hand_size(other.pending_target_hand_size),
-        pending_hand_original_indices(other.pending_hand_original_indices),
         pending_last_selected_original_index(
             other.pending_last_selected_original_index),
         pending_select_only_action(other.pending_select_only_action),
@@ -115,7 +110,7 @@ struct PlayerState {
         pending_throne_schedule_second_for(
             other.pending_throne_schedule_second_for) {
     effect_head = other.effect_head ? other.effect_head->clone() : nullptr;
-    obs_state = std::make_unique<ObservationState>(hand_, deck_, discard_);
+    obs_state = std::make_unique<ObservationState>(hand_counts_, deck_, discard_);
   }
   // No copy-assignment: deep copy supported via copy constructor; assignment is
   // intentionally omitted.
@@ -125,19 +120,13 @@ struct PlayerState {
     pending_choice = PendingChoice::SelectUpToCardsFromHand;
     pending_discard_count = 0;
     pending_draw_equals_discard = draw_equals_discard;
-    pending_hand_original_indices.clear();
     pending_last_selected_original_index = -1;
-    pending_hand_original_indices.reserve(static_cast<int>(hand_.size()));
-    for (int i = 0; i < static_cast<int>(hand_.size()); ++i) {
-      pending_hand_original_indices.push_back(i);
-    }
   }
 
   // Clear discard selection metadata after finishing the effect.
   void ClearDiscardSelection() {
     pending_discard_count = 0;
     pending_draw_equals_discard = false;
-    pending_hand_original_indices.clear();
     pending_last_selected_original_index = -1;
     pending_target_hand_size = 0;
     pending_select_only_action = false;
@@ -187,7 +176,6 @@ private:
   int turn_number_ = 1;
   int actions_ = 1;
   int buys_ = 1;
-  int money_0 = 0;
   Phase phase_ = Phase::actionPhase;
   int last_player_to_go_ = -1;
 
