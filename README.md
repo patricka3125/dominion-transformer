@@ -26,3 +26,12 @@ To keep the codebase organized, let's define all struct contents in a new file.
     * A penalty should be added if an action is selected that is unnecessary. e.g. play 1 copper, buy a curse. (when they could've just bought the curse without playing the copper).
     * (optional)Set  games that exceed 30 turns to terminal, or a sever utility punishment.
 * Need to implement supporting logic for chance nodes for kSampleStochasity
+
+## Note:
+Alphazero + MCTS is still not able to play dominion well! Alphazero is a Neural Net (NN) that contains a policy head and value head given the true state of the game. During actual play, you will never get the true state, so the next best thing will be to feed the observation tensor.
+
+The flaw of observation tensor is that the same observation tensor can actually apply to `n` quantity of deterministic hidden states, which theoretically each have their own policy and value heads. Sure, the NN will be able to aggregate the policy and value heads over all its sampled hidden states, but this will still not be accurate. 
+
+Ideally alphazero is still running alongside MCTS even during an actual game, so that it can perform lookahead on the current gamestate to refine the policy and value head. However this simply isn't possible in an imperfect information game. Or at the very least, the MCTS algorithm that is running needs to be able to continuously sample the hidden states of the game and aggregate policy and value heads based on the results.
+
+In conclusion, we need to have AlphaZero run alongside IS-MCTS, that will produce the best outcome because IS-MCTS will be able to sample n hidden states given an information set, and aggregate the policy and value heads based on the results.

@@ -39,6 +39,10 @@ namespace ActionIds {
   // Generic gain-from-supply selection actions (effect-level).
   inline int GainSelectBase() { return EndBuy()+1; }
   inline Action GainSelect(int j) { return static_cast<Action>(GainSelectBase() + j); }
+
+  // Chance outcome used in sampled stochastic mode for deck shuffling.
+  // This action id is only valid when CurrentPlayer() == kChancePlayerId.
+  inline Action Shuffle() { return static_cast<Action>(0); }
 }
 
 // Human-readable names for action IDs. The caller provides the supply size

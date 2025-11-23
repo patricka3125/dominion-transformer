@@ -16,7 +16,7 @@ const GameType kGameType{
     "dominion",
     "Dominion (Base)",
     GameType::Dynamics::kSequential,
-    GameType::ChanceMode::kDeterministic,
+    GameType::ChanceMode::kSampledStochastic,
     GameType::Information::kImperfectInformation,
     GameType::Utility::kZeroSum,
     GameType::RewardModel::kTerminal,
@@ -26,7 +26,7 @@ const GameType kGameType{
     /*provides_information_state_tensor=*/false,
     /*provides_observation_string=*/true,
     /*provides_observation_tensor=*/false,
-    /*parameter_specification=*/{{"rng_seed", GameParameter(0)}}};
+    /*parameter_specification=*/{}};
 
 std::shared_ptr<const Game> Factory(const GameParameters &params) {
   return std::shared_ptr<const Game>(new DominionGame(params));
@@ -38,9 +38,7 @@ REGISTER_SPIEL_GAME(kGameType, Factory);
 
 DominionGame::DominionGame(const GameParameters &params)
     : Game(kGameType, params) {
-  // Seed the game's RNG from the parameter for reproducibility across runs.
-  rng_seed_ = ParameterValue<int>("rng_seed");
-  rng_.seed(static_cast<unsigned>(rng_seed_));
+  // No game-level RNG management; chance events use local RNG.
 }
 
 int DominionGame::NumDistinctActions() const {
@@ -65,20 +63,7 @@ std::vector<int> DominionGame::ObservationTensorShape() const { return {}; }
 
 int DominionGame::MaxGameLength() const { return 500; }
 
-std::string DominionGame::GetRNGState() const {
-  // Serialize the RNG so Game::Serialize captures deterministic randomness.
-  std::ostringstream oss;
-  oss << rng_;
-  return oss.str();
-}
-
-void DominionGame::SetRNGState(const std::string &rng_state) const {
-  // Restore RNG from a serialized string to reproduce stochastic outcomes.
-  if (rng_state.empty())
-    return;
-  std::istringstream iss(rng_state);
-  iss >> rng_;
-}
+int DominionGame::MaxChanceOutcomes() const { return 1; }
 
 namespace {
 static bool HasType(const Card &c, CardType t) {
@@ -86,35 +71,21 @@ static bool HasType(const Card &c, CardType t) {
 }
 
 // Format an action as "id:name" using the game's action-naming helpers.
-static std::string FormatActionPair(Action a) {
-  return std::to_string(static_cast<int>(a)) + ":" +
-         ActionNames::Name(a, kNumSupplyPiles);
+static std::string FormatActionPair(const DominionState& st, Action a) {
+  return std::to_string(static_cast<int>(a)) + ":" + st.ActionToString(st.CurrentPlayer(), a);
 }
 } // namespace
 
 void DominionState::DrawCardsFor(int player, int n) {
   auto &ps = player_states_[player];
-  // Shuffle discard into deck when deck is empty; use game RNG for determinism.
-  const auto *dom_game = dynamic_cast<const DominionGame *>(game_.get());
-  std::mt19937 *rng = dom_game ? dom_game->rng() : nullptr;
-  auto shuffle_vec = [&](std::vector<CardName> &v) {
-    if (rng)
-      std::shuffle(v.begin(), v.end(), *rng);
-  };
   for (int i = 0; i < n; ++i) {
     if (ps.deck_.empty()) {
       int discard_size = 0; for (int jj=0;jj<kNumSupplyPiles;++jj) discard_size += ps.discard_counts_[jj];
-      if (discard_size == 0)
-        break;
-      // Expand discard counts to a vector, shuffle, and move into deck.
-      std::vector<CardName> tmp;
-      tmp.reserve(discard_size);
-      for (int jj = 0; jj < kNumSupplyPiles; ++jj) {
-        for (int k = 0; k < ps.discard_counts_[jj]; ++k) tmp.push_back(static_cast<CardName>(jj));
-        ps.discard_counts_[jj] = 0;
-      }
-      shuffle_vec(tmp);
-      ps.deck_.insert(ps.deck_.end(), tmp.begin(), tmp.end());
+      if (discard_size == 0) break;
+      shuffle_pending_ = true;
+      original_player_for_shuffle_ = player;
+      pending_draw_count_after_shuffle_ = n - i;
+      return;
     }
     int idx = static_cast<int>(ps.deck_.back());
     if (idx >= 0 && idx < kNumSupplyPiles) {
@@ -125,9 +96,9 @@ void DominionState::DrawCardsFor(int player, int n) {
 }
 
 DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
-  // Shuffle initial decks using game RNG for reproducibility.
-  const auto *dom_game = dynamic_cast<const DominionGame *>(game_.get());
-  std::mt19937 *rng = dom_game ? dom_game->rng() : nullptr;
+  // Shuffle initial decks using a local RNG to introduce chance.
+  unsigned seed = static_cast<unsigned>(std::random_device{}());
+  std::mt19937 rng(seed);
 
   // Initialize supply piles indexed by CardName; non-board cards are 0.
   for (int j = 0; j < kNumSupplyPiles; ++j) supply_piles_[j] = 0;
@@ -159,9 +130,8 @@ DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
     for (int i = 0; i < 3; ++i) {
       ps.deck_.push_back(CardName::CARD_Estate);
     }
-    if (rng) {
-      std::shuffle(ps.deck_.begin(), ps.deck_.end(), *rng);
-    }
+    // Shuffle the 10-card starting deck using local RNG.
+    std::shuffle(ps.deck_.begin(), ps.deck_.end(), rng);
 
     DrawCardsFor(p, 5);
   }
@@ -175,7 +145,7 @@ DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
   MaybeAutoAdvanceToBuyPhase();
 }
 
-Player DominionState::CurrentPlayer() const { return current_player_; }
+Player DominionState::CurrentPlayer() const { return shuffle_pending_ ? kChancePlayerId : current_player_; }
 
 // Computes the legal actions for the current player.
 // Returns sorted IDs and delegates to pending-effect logic first.
@@ -183,6 +153,10 @@ std::vector<Action> DominionState::LegalActions() const {
   std::vector<Action> actions;
   if (IsTerminal())
     return actions;
+  if (IsChanceNode()) {
+    actions.push_back(ActionIds::Shuffle());
+    return actions;
+  }
   const auto &ps = player_states_[current_player_];
   {
     auto pend = PendingEffectLegalActions(*this, current_player_);
@@ -221,8 +195,11 @@ std::vector<Action> DominionState::LegalActions() const {
   return actions;
 }
 
-std::string DominionState::ActionToString(Player /*player*/,
+std::string DominionState::ActionToString(Player player,
                                           Action action_id) const {
+  if (player == kChancePlayerId) {
+    return action_id == ActionIds::Shuffle() ? "Shuffle" : "UnknownChance";
+  }
   return ActionNames::NameWithCard(action_id, kNumSupplyPiles);
 }
 
@@ -297,7 +274,7 @@ std::string DominionState::ObservationString(int player) const {
   const auto h = History();
   if (!h.empty()) {
     s += "LastAction: ";
-    s += FormatActionPair(h.back());
+    s += FormatActionPair(*this, h.back());
     s += "\n";
   }
   if (player == current_player_) {
@@ -307,7 +284,7 @@ std::string DominionState::ObservationString(int player) const {
       if (i)
         s += ", ";
       const Action a = las[i];
-      std::string a_str = FormatActionPair(a);
+      std::string a_str = FormatActionPair(*this, a);
       if (a < ActionIds::MaxHandSize()) {
         int idx = static_cast<int>(a);
         if (idx >= 0 && idx < kNumSupplyPiles) {
@@ -334,7 +311,7 @@ std::string DominionState::InformationStateString(int player) const {
   const auto h = History();
   if (!h.empty()) {
     s += "\nLastAction: ";
-    s += FormatActionPair(h.back());
+    s += FormatActionPair(*this, h.back());
   }
   return s;
 }
@@ -398,6 +375,38 @@ std::unique_ptr<State> DominionState::Clone() const {
 // - Handles phase transitions: EndActions -> buyPhase; EndBuy -> cleanup + next
 // turn.
 void DominionState::DoApplyAction(Action action_id) {
+  if (IsChanceNode()) {
+    SPIEL_CHECK_TRUE(shuffle_pending_);
+    SPIEL_CHECK_EQ(action_id, ActionIds::Shuffle());
+    // Localize RNG for shuffling discard into deck; reproducibility is not required.
+    unsigned seed = static_cast<unsigned>(std::random_device{}());
+    std::mt19937 local_rng(seed);
+    auto &ps_orig = player_states_[original_player_for_shuffle_];
+    int discard_size = 0; for (int jj=0;jj<kNumSupplyPiles;++jj) discard_size += ps_orig.discard_counts_[jj];
+    if (discard_size > 0) {
+      std::vector<CardName> tmp;
+      tmp.reserve(discard_size);
+      for (int jj = 0; jj < kNumSupplyPiles; ++jj) {
+        for (int k = 0; k < ps_orig.discard_counts_[jj]; ++k) tmp.push_back(static_cast<CardName>(jj));
+        ps_orig.discard_counts_[jj] = 0;
+      }
+      std::shuffle(tmp.begin(), tmp.end(), local_rng);
+      ps_orig.deck_.insert(ps_orig.deck_.end(), tmp.begin(), tmp.end());
+    }
+    shuffle_pending_ = false;
+    Player resume_player = original_player_for_shuffle_;
+    original_player_for_shuffle_ = -1;
+    int to_draw = pending_draw_count_after_shuffle_;
+    pending_draw_count_after_shuffle_ = 0;
+    DrawCardsFor(resume_player, to_draw);
+    if (shuffle_pending_end_of_turn_) {
+      shuffle_pending_end_of_turn_ = false;
+      current_player_ = 1 - resume_player;
+      phase_ = Phase::actionPhase;
+      MaybeAutoAdvanceToBuyPhase();
+    }
+    return;
+  }
   auto &ps = player_states_[current_player_];
   // If there is a pending effect node and it provides an action handler,
   // delegate to it first.
@@ -550,6 +559,10 @@ void DominionState::MaybeAutoAdvanceToBuyPhase() {
     if (HasType(spec, CardType::ACTION)) { has_playable_action = true; break; }
   }
   if (!has_playable_action) phase_ = Phase::buyPhase;
+}
+
+ActionsAndProbs DominionState::ChanceOutcomes() const {
+  return ActionsAndProbs{{ActionIds::Shuffle(), 1.0}};
 }
 
 } // namespace dominion

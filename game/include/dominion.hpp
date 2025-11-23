@@ -161,6 +161,7 @@ public:
   bool IsTerminal() const override;
   std::vector<double> Returns() const override;
   std::unique_ptr<State> Clone() const override;
+  ActionsAndProbs ChanceOutcomes() const override;
 
   // Draw n cards for player, shuffling discard into deck when needed.
   void DrawCardsFor(int player, int n);
@@ -187,6 +188,11 @@ private:
   int buys_ = 1;
   Phase phase_ = Phase::actionPhase;
   int last_player_to_go_ = -1;
+  // Sampled stochastic shuffle state.
+  bool shuffle_pending_ = false;
+  bool shuffle_pending_end_of_turn_ = false;
+  int original_player_for_shuffle_ = -1;
+  int pending_draw_count_after_shuffle_ = 0;
 
   std::array<int, kNumSupplyPiles> supply_piles_{}; // counts per supply pile (indexed by CardName)
   std::array<int, kNumSupplyPiles> initial_supply_piles_{}; // initial counts for terminal checks, represents the kingdom.
@@ -214,14 +220,10 @@ public:
   std::vector<int> InformationStateTensorShape() const override;
   std::vector<int> ObservationTensorShape() const override;
   int MaxGameLength() const override;
-  std::string GetRNGState() const override;
-  void SetRNGState(const std::string &rng_state) const override;
+  int MaxChanceOutcomes() const override;
 
-  std::mt19937 *rng() const { return &rng_; }
 
 private:
-  mutable int rng_seed_ = 0;
-  mutable std::mt19937 rng_{};
 };
 } // namespace dominion
 } // namespace open_spiel
