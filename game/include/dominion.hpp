@@ -99,18 +99,19 @@ struct PlayerState {
 
   PlayerState() = default;
   PlayerState(const PlayerState &other)
-      : deck_(other.deck_), hand_counts_(other.hand_counts_), discard_counts_(other.discard_counts_),
-        history_(other.history_), pending_choice(other.pending_choice),
+      : deck_(other.deck_),
+        hand_counts_(other.hand_counts_),
+        discard_counts_(other.discard_counts_),
+        history_(other.history_),
+        pending_choice(other.pending_choice),
         pending_discard_count(other.pending_discard_count),
         pending_draw_equals_discard(other.pending_draw_equals_discard),
         pending_gain_max_cost(other.pending_gain_max_cost),
         pending_target_hand_size(other.pending_target_hand_size),
-        pending_last_selected_original_index(
-            other.pending_last_selected_original_index),
         pending_select_only_action(other.pending_select_only_action),
         pending_throne_replay_stack(other.pending_throne_replay_stack),
-        pending_throne_schedule_second_for(
-            other.pending_throne_schedule_second_for) {
+        pending_throne_schedule_second_for(other.pending_throne_schedule_second_for),
+        pending_last_selected_original_index(other.pending_last_selected_original_index) {
     effect_head = other.effect_head ? other.effect_head->clone() : nullptr;
     obs_state = std::make_unique<ObservationState>(hand_counts_, deck_, discard_counts_);
   }

@@ -108,7 +108,6 @@ bool Card::CellarHandSelectHandler(DominionState& st, int pl, Action action_id) 
   // Discard any number; draw equal to discards on finish.
   auto on_select = [](DominionState& st2, int pl2, int j) {
     auto& p2 = st2.player_states_[pl2];
-    CardName cn = static_cast<CardName>(j);
     p2.discard_counts_[j] += 1;
     p2.hand_counts_[j] -= 1;
   };

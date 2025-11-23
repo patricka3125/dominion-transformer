@@ -147,8 +147,8 @@ public:
     Card(CardName kind_, std::string name_, std::vector<CardType> types_, int cost_=0, int value_=0, int vp_=0,
          int grant_action_ = 0, int grant_draw_ = 0, int grant_buy_ = 0,
          std::shared_ptr<const EffectChain> effect_ = nullptr)
-      : kind_(kind_),
-        name_(std::move(name_)),
+      : name_(std::move(name_)),
+        kind_(kind_),
         types_(std::move(types_)),
         cost_(cost_), value_(value_), vp_(vp_),
         grant_action_(grant_action_), grant_draw_(grant_draw_), grant_buy_(grant_buy_),
