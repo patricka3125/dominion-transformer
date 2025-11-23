@@ -1,11 +1,11 @@
-#include <cstdlib>
 #include <algorithm>
-#include <random>
+#include <cstdlib>
 #include <map>
+#include <random>
 
-#include "dominion.hpp"
-#include "cards.hpp"
 #include "actions.hpp"
+#include "cards.hpp"
+#include "dominion.hpp"
 #include "open_spiel/spiel.h"
 
 namespace open_spiel {
@@ -26,25 +26,26 @@ const GameType kGameType{
     /*provides_information_state_tensor=*/false,
     /*provides_observation_string=*/true,
     /*provides_observation_tensor=*/false,
-    /*parameter_specification=*/{{"rng_seed", GameParameter(0)}}
-};
+    /*parameter_specification=*/{{"rng_seed", GameParameter(0)}}};
 
-std::shared_ptr<const Game> Factory(const GameParameters& params) {
+std::shared_ptr<const Game> Factory(const GameParameters &params) {
   return std::shared_ptr<const Game>(new DominionGame(params));
 }
 
 REGISTER_SPIEL_GAME(kGameType, Factory);
 
-}  // namespace
+} // namespace
 
-DominionGame::DominionGame(const GameParameters& params)
+DominionGame::DominionGame(const GameParameters &params)
     : Game(kGameType, params) {
   // Seed the game's RNG from the parameter for reproducibility across runs.
   rng_seed_ = ParameterValue<int>("rng_seed");
   rng_.seed(static_cast<unsigned>(rng_seed_));
 }
 
-int DominionGame::NumDistinctActions() const { return kDominionMaxDistinctActions; }
+int DominionGame::NumDistinctActions() const {
+  return kDominionMaxDistinctActions;
+}
 
 std::unique_ptr<State> DominionGame::NewInitialState() const {
   return std::unique_ptr<State>(new DominionState(shared_from_this()));
@@ -56,7 +57,9 @@ double DominionGame::MinUtility() const { return -50.0; }
 
 double DominionGame::MaxUtility() const { return 50.0; }
 
-std::vector<int> DominionGame::InformationStateTensorShape() const { return {}; }
+std::vector<int> DominionGame::InformationStateTensorShape() const {
+  return {};
+}
 
 std::vector<int> DominionGame::ObservationTensorShape() const { return {}; }
 
@@ -69,42 +72,47 @@ std::string DominionGame::GetRNGState() const {
   return oss.str();
 }
 
-void DominionGame::SetRNGState(const std::string& rng_state) const {
+void DominionGame::SetRNGState(const std::string &rng_state) const {
   // Restore RNG from a serialized string to reproduce stochastic outcomes.
-  if (rng_state.empty()) return;
+  if (rng_state.empty())
+    return;
   std::istringstream iss(rng_state);
   iss >> rng_;
 }
 
 namespace {
-static bool HasType(const Card& c, CardType t) {
+static bool HasType(const Card &c, CardType t) {
   return std::find(c.types_.begin(), c.types_.end(), t) != c.types_.end();
 }
 
 // Format an action as "id:name" using the game's action-naming helpers.
 static std::string FormatActionPair(Action a) {
-  return std::to_string(static_cast<int>(a)) + ":" + ActionNames::Name(a, kNumSupplyPiles);
+  return std::to_string(static_cast<int>(a)) + ":" +
+         ActionNames::Name(a, kNumSupplyPiles);
 }
 
-static void BuildCounts(std::map<CardName,int>& out, const std::vector<CardName>& vec) {
+static void BuildCounts(std::map<CardName, int> &out,
+                        const std::vector<CardName> &vec) {
   out.clear();
   for (auto cn : vec) {
     out[cn] += 1;
   }
 }
-}
+} // namespace
 
 void DominionState::DrawCardsFor(int player, int n) {
-  auto& ps = player_states_[player];
+  auto &ps = player_states_[player];
   // Shuffle discard into deck when deck is empty; use game RNG for determinism.
-  const auto* dom_game = dynamic_cast<const DominionGame*>(game_.get());
-  std::mt19937* rng = dom_game ? dom_game->rng() : nullptr;
-  auto shuffle_vec = [&](std::vector<CardName>& v) {
-    if (rng) std::shuffle(v.begin(), v.end(), *rng);
+  const auto *dom_game = dynamic_cast<const DominionGame *>(game_.get());
+  std::mt19937 *rng = dom_game ? dom_game->rng() : nullptr;
+  auto shuffle_vec = [&](std::vector<CardName> &v) {
+    if (rng)
+      std::shuffle(v.begin(), v.end(), *rng);
   };
   for (int i = 0; i < n; ++i) {
     if (ps.deck_.empty()) {
-      if (ps.discard_.empty()) break;
+      if (ps.discard_.empty())
+        break;
       shuffle_vec(ps.discard_);
       ps.deck_.insert(ps.deck_.end(), ps.discard_.begin(), ps.discard_.end());
       ps.discard_.clear();
@@ -114,11 +122,10 @@ void DominionState::DrawCardsFor(int player, int n) {
   }
 }
 
-DominionState::DominionState(std::shared_ptr<const Game> game)
-    : State(game) {
+DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
   // Shuffle initial decks using game RNG for reproducibility.
-  const auto* dom_game = dynamic_cast<const DominionGame*>(game_.get());
-  std::mt19937* rng = dom_game ? dom_game->rng() : nullptr;
+  const auto *dom_game = dynamic_cast<const DominionGame *>(game_.get());
+  std::mt19937 *rng = dom_game ? dom_game->rng() : nullptr;
   // Supply types: base and kingdom piles
   supply_types_[0] = CardName::CARD_Copper;
   supply_types_[1] = CardName::CARD_Silver;
@@ -146,15 +153,17 @@ DominionState::DominionState(std::shared_ptr<const Game> game)
   supply_piles_[4] = 8;
   supply_piles_[5] = 8;
   supply_piles_[6] = 10;
-  for (int i = 7; i < kNumSupplyPiles; ++i) supply_piles_[i] = 10;
+  for (int i = 7; i < kNumSupplyPiles; ++i)
+    supply_piles_[i] = 10;
 
   // Initial decks and hands
   for (int p = 0; p < kNumPlayers; ++p) {
-    auto& ps = player_states_[p];
+    auto &ps = player_states_[p];
     ps.deck_.clear();
     ps.discard_.clear();
     ps.hand_.clear();
-    ps.obs_state = std::make_unique<ObservationState>(ps.hand_, ps.deck_, ps.discard_);
+    ps.obs_state =
+        std::make_unique<ObservationState>(ps.hand_, ps.deck_, ps.discard_);
     for (int i = 0; i < 7; ++i) {
       ps.deck_.push_back(CardName::CARD_Copper);
     }
@@ -181,18 +190,20 @@ Player DominionState::CurrentPlayer() const { return current_player_; }
 // Returns sorted IDs and delegates to pending-effect logic first.
 std::vector<Action> DominionState::LegalActions() const {
   std::vector<Action> actions;
-  if (IsTerminal()) return actions;
-  const auto& ps = player_states_[current_player_];
+  if (IsTerminal())
+    return actions;
+  const auto &ps = player_states_[current_player_];
   {
     auto pend = PendingEffectLegalActions(*this, current_player_);
-    if (!pend.empty()) return pend;
+    if (!pend.empty())
+      return pend;
   }
   if (phase_ == Phase::actionPhase) {
     if (actions_ > 0) {
       std::array<bool, kNumCardTypes> seen{};
       for (int i = 0; i < static_cast<int>(ps.hand_.size()) && i < 100; ++i) {
         CardName cn = ps.hand_[i];
-        const Card& spec = GetCardSpec(cn);
+        const Card &spec = GetCardSpec(cn);
         if (HasType(spec, CardType::ACTION)) {
           int cidx = static_cast<int>(cn);
           if (cidx >= 0 && cidx < kNumCardTypes && !seen[cidx]) {
@@ -207,7 +218,7 @@ std::vector<Action> DominionState::LegalActions() const {
     std::array<bool, kNumCardTypes> seen{};
     for (int i = 0; i < static_cast<int>(ps.hand_.size()) && i < 100; ++i) {
       CardName cn = ps.hand_[i];
-      const Card& spec = GetCardSpec(cn);
+      const Card &spec = GetCardSpec(cn);
       if (HasType(spec, CardType::TREASURE)) {
         int cidx = static_cast<int>(cn);
         if (cidx >= 0 && cidx < kNumCardTypes && !seen[cidx]) {
@@ -218,9 +229,11 @@ std::vector<Action> DominionState::LegalActions() const {
     }
     if (buys_ > 0) {
       for (int j = 0; j < kNumSupplyPiles; ++j) {
-        if (supply_piles_[j] <= 0) continue;
-        const Card& spec = GetCardSpec(supply_types_[j]);
-        if (coins_ >= spec.cost_) actions.push_back(ActionIds::BuyFromSupply(j));
+        if (supply_piles_[j] <= 0)
+          continue;
+        const Card &spec = GetCardSpec(supply_types_[j]);
+        if (coins_ >= spec.cost_)
+          actions.push_back(ActionIds::BuyFromSupply(j));
       }
     }
     actions.push_back(ActionIds::EndBuy());
@@ -229,21 +242,26 @@ std::vector<Action> DominionState::LegalActions() const {
   return actions;
 }
 
-std::string DominionState::ActionToString(Player /*player*/, Action action_id) const {
-  const auto& ps_act = player_states_[current_player_];
-  return ActionNames::NameWithCard(action_id, kNumSupplyPiles, ps_act.hand_, supply_types_.data());
+std::string DominionState::ActionToString(Player /*player*/,
+                                          Action action_id) const {
+  const auto &ps_act = player_states_[current_player_];
+  return ActionNames::NameWithCard(action_id, kNumSupplyPiles, ps_act.hand_,
+                                   supply_types_.data());
 }
 
-// Per-player observation string: only include public info and the player's own privates.
-// TODO: Add information about deck and discard tracking, opponent deck tracking, etc.
+// Per-player observation string: only include public info and the player's own
+// privates.
+// TODO: Add information about deck and discard tracking, opponent deck
+// tracking, etc.
 std::string DominionState::ObservationString(int player) const {
-  const auto& ps_me = player_states_[player];
-  const auto& ps_opp = player_states_[1 - player];
+  const auto &ps_me = player_states_[player];
+  const auto &ps_opp = player_states_[1 - player];
   auto card_name = [](CardName cn) { return GetCardSpec(cn).name_; };
 
   std::string s;
   s += std::string("Player: ") + std::to_string(player) + "\n";
-  s += std::string("Phase: ") + (phase_ == Phase::actionPhase ? "Action" : "Buy") + "\n";
+  s += std::string("Phase: ") +
+       (phase_ == Phase::actionPhase ? "Action" : "Buy") + "\n";
   s += std::string("Actions: ") + std::to_string(actions_) + "\n";
   s += std::string("Buys: ") + std::to_string(buys_) + "\n";
   s += std::string("Coins: ") + std::to_string(coins_) + "\n";
@@ -251,22 +269,28 @@ std::string DominionState::ObservationString(int player) const {
   // Show only this player's hand contents; deck and discard sizes only.
   s += "Hand: ";
   for (size_t i = 0; i < ps_me.hand_.size(); ++i) {
-    if (i) s += " ";
+    if (i)
+      s += " ";
     s += card_name(ps_me.hand_[i]);
   }
   s += "\n";
   s += std::string("DeckSize: ") + std::to_string(ps_me.deck_.size()) + "\n";
-  s += std::string("DiscardSize: ") + std::to_string(ps_me.discard_.size()) + "\n";
+  s += std::string("DiscardSize: ") + std::to_string(ps_me.discard_.size()) +
+       "\n";
 
   // Opponent privates are hidden; expose sizes only.
-  s += std::string("OpponentHandSize: ") + std::to_string(ps_opp.hand_.size()) + "\n";
-  s += std::string("OpponentDeckSize: ") + std::to_string(ps_opp.deck_.size()) + "\n";
-  s += std::string("OpponentDiscardSize: ") + std::to_string(ps_opp.discard_.size()) + "\n";
+  s += std::string("OpponentHandSize: ") + std::to_string(ps_opp.hand_.size()) +
+       "\n";
+  s += std::string("OpponentDeckSize: ") + std::to_string(ps_opp.deck_.size()) +
+       "\n";
+  s += std::string("OpponentDiscardSize: ") +
+       std::to_string(ps_opp.discard_.size()) + "\n";
 
   // Public supply counts.
   s += "Supply: ";
   for (int i = 0; i < kNumSupplyPiles; ++i) {
-    if (i) s += ", ";
+    if (i)
+      s += ", ";
     s += std::to_string(i);
     s += ":";
     s += card_name(supply_types_[i]);
@@ -277,12 +301,14 @@ std::string DominionState::ObservationString(int player) const {
   // Public play area.
   s += "PlayArea: ";
   for (size_t i = 0; i < play_area_.size(); ++i) {
-    if (i) s += " ";
+    if (i)
+      s += " ";
     s += card_name(play_area_[i]);
   }
   s += "\n";
 
-  // Append last public action and current legal actions (only for current player).
+  // Append last public action and current legal actions (only for current
+  // player).
   const auto h = History();
   if (!h.empty()) {
     s += "LastAction: ";
@@ -293,7 +319,8 @@ std::string DominionState::ObservationString(int player) const {
     s += "LegalActions: ";
     const auto las = LegalActions();
     for (size_t i = 0; i < las.size(); ++i) {
-      if (i) s += ", ";
+      if (i)
+        s += ", ";
       const Action a = las[i];
       std::string a_str = FormatActionPair(a);
       if (a < ActionIds::BuyBase()) {
@@ -301,7 +328,8 @@ std::string DominionState::ObservationString(int player) const {
         if (idx >= 0 && idx < static_cast<int>(ps_me.hand_.size())) {
           a_str += " (" + card_name(ps_me.hand_[idx]) + ")";
         }
-      } else if (a >= ActionIds::BuyBase() && a < ActionIds::BuyBase() + kNumSupplyPiles) {
+      } else if (a >= ActionIds::BuyBase() &&
+                 a < ActionIds::BuyBase() + kNumSupplyPiles) {
         int j = static_cast<int>(a) - ActionIds::BuyBase();
         if (j >= 0 && j < kNumSupplyPiles) {
           a_str += " (" + card_name(supply_types_[j]) + ")";
@@ -317,7 +345,8 @@ std::string DominionState::ObservationString(int player) const {
 // Include public info and the player's private info plus full public history.
 std::string DominionState::InformationStateString(int player) const {
   std::string s = ObservationString(player);
-  // Include last action and legal actions for current player (already safe to expose).
+  // Include last action and legal actions for current player (already safe to
+  // expose).
   const auto h = History();
   if (!h.empty()) {
     s += "\nLastAction: ";
@@ -333,13 +362,16 @@ std::string DominionState::ToString() const {
 
 bool DominionState::IsTerminal() const {
   int empty = 0;
-  for (int i = 0; i < kNumSupplyPiles; ++i) empty += (supply_piles_[i] == 0);
-  if (supply_piles_[5] == 0) return true;
-  if (empty >= 3) return true;
+  for (int i = 0; i < kNumSupplyPiles; ++i)
+    empty += (supply_piles_[i] == 0);
+  if (supply_piles_[5] == 0)
+    return true;
+  if (empty >= 3)
+    return true;
   return false;
 }
 
-static int CountVP(const PlayerState& ps) {
+static int CountVP(const PlayerState &ps) {
   int vp = 0;
   auto count_all = [&](CardName name) {
     return std::count(ps.deck_.begin(), ps.deck_.end(), name) +
@@ -351,7 +383,8 @@ static int CountVP(const PlayerState& ps) {
   int provinces = count_all(CardName::CARD_Province);
   int curses = count_all(CardName::CARD_Curse);
   int gardens = count_all(CardName::CARD_Gardens);
-  int total_cards = static_cast<int>(ps.deck_.size() + ps.discard_.size() + ps.hand_.size());
+  int total_cards =
+      static_cast<int>(ps.deck_.size() + ps.discard_.size() + ps.hand_.size());
   vp += estates * 1 + duchies * 3 + provinces * 6;
   vp -= curses * 1;
   vp += gardens * (total_cards / 10);
@@ -359,12 +392,16 @@ static int CountVP(const PlayerState& ps) {
 }
 
 std::vector<double> DominionState::Returns() const {
-  if (!IsTerminal()) return std::vector<double>(kNumPlayers, 0.0);
+  if (!IsTerminal())
+    return std::vector<double>(kNumPlayers, 0.0);
   int vp0 = CountVP(player_states_[0]);
   int vp1 = CountVP(player_states_[1]);
-  if (vp0 > vp1) return {1.0, -1.0};
-  if (vp1 > vp0) return {-1.0, 1.0};
-  if (last_player_to_go_ == 1) return {0.0, 0.0};
+  if (vp0 > vp1)
+    return {1.0, -1.0};
+  if (vp1 > vp0)
+    return {-1.0, 1.0};
+  if (last_player_to_go_ == 1)
+    return {0.0, 0.0};
   return {-1.0, 1.0};
 }
 
@@ -374,31 +411,41 @@ std::unique_ptr<State> DominionState::Clone() const {
 
 // Applies the given action_id for the current player.
 // - Delegates effect-specific resolution first (e.g., discard selection).
-// - Handles phase transitions: EndActions -> buyPhase; EndBuy -> cleanup + next turn.
+// - Handles phase transitions: EndActions -> buyPhase; EndBuy -> cleanup + next
+// turn.
 void DominionState::DoApplyAction(Action action_id) {
-  auto& ps = player_states_[current_player_];
+  auto &ps = player_states_[current_player_];
   // If there is a pending effect node and it provides an action handler,
   // delegate to it first.
-  if (ps.effect_head && ps.pending_choice != PendingChoice::None && ps.effect_head->on_action) {
-    bool consumed = ps.effect_head->on_action(*this, current_player_, action_id);
+  if (ps.effect_head && ps.pending_choice != PendingChoice::None &&
+      ps.effect_head->on_action) {
+    bool consumed =
+        ps.effect_head->on_action(*this, current_player_, action_id);
     if (consumed) {
       if (ps.pending_choice == PendingChoice::None && ps.effect_head) {
         ps.effect_head = std::move(ps.effect_head->next);
       }
 
-      // After advancing the effect chain, process any pending Throne Room replays.
-      while (ps.pending_choice == PendingChoice::None && !ps.effect_head && !ps.pending_throne_replay_stack.empty()) {
+      // After advancing the effect chain, process any pending Throne Room
+      // replays.
+      while (ps.pending_choice == PendingChoice::None && !ps.effect_head &&
+             !ps.pending_throne_replay_stack.empty()) {
         CardName to_replay = ps.pending_throne_replay_stack.back();
         ps.pending_throne_replay_stack.pop_back();
-        const Card& spec = GetCardSpec(to_replay);
+        const Card &spec = GetCardSpec(to_replay);
         // Throne Room replay: apply standard grants and the card effect,
-        // without removing from hand, moving to play area, or consuming an action.
+        // without removing from hand, moving to play area, or consuming an
+        // action.
         spec.play(*this, current_player_);
         spec.applyEffect(*this, current_player_);
-        // If this creates a pending effect (e.g., Throne Room selection), break to let it resolve.
+        // If this creates a pending effect (e.g., Throne Room selection), break
+        // to let it resolve.
         if (ps.effect_head) {
-          // If we just replayed a Throne card and need to schedule its second play, do so now.
-          if (to_replay == CardName::CARD_ThroneRoom && ps.pending_throne_schedule_second_for.has_value() && ps.pending_throne_schedule_second_for.value() == to_replay) {
+          // If we just replayed a Throne card and need to schedule its second
+          // play, do so now.
+          if (to_replay == CardName::CARD_ThroneRoom &&
+              ps.pending_throne_schedule_second_for.has_value() &&
+              ps.pending_throne_schedule_second_for.value() == to_replay) {
             ps.pending_throne_replay_stack.push_back(to_replay);
             ps.pending_throne_schedule_second_for.reset();
           }
@@ -413,9 +460,10 @@ void DominionState::DoApplyAction(Action action_id) {
       phase_ = Phase::buyPhase;
       return;
     }
-    if (action_id < ActionIds::BuyBase() && actions_ > 0 && action_id < static_cast<Action>(ps.hand_.size())) {
+    if (action_id < ActionIds::BuyBase() && actions_ > 0 &&
+        action_id < static_cast<Action>(ps.hand_.size())) {
       CardName cn = ps.hand_[action_id];
-      const Card& spec = GetCardSpec(cn);
+      const Card &spec = GetCardSpec(cn);
       if (HasType(spec, CardType::ACTION)) {
         play_area_.push_back(cn);
         ps.hand_.erase(ps.hand_.begin() + action_id);
@@ -429,9 +477,10 @@ void DominionState::DoApplyAction(Action action_id) {
       EndBuyCleanup();
       return;
     }
-    if (action_id < ActionIds::BuyBase() && action_id < static_cast<Action>(ps.hand_.size())) {
+    if (action_id < ActionIds::BuyBase() &&
+        action_id < static_cast<Action>(ps.hand_.size())) {
       CardName cn = ps.hand_[action_id];
-      const Card& spec = GetCardSpec(cn);
+      const Card &spec = GetCardSpec(cn);
       if (HasType(spec, CardType::TREASURE)) {
         play_area_.push_back(cn);
         ps.hand_.erase(ps.hand_.begin() + action_id);
@@ -439,10 +488,11 @@ void DominionState::DoApplyAction(Action action_id) {
       }
       return;
     }
-    if (action_id >= ActionIds::BuyBase() && action_id < ActionIds::BuyBase() + kNumSupplyPiles && buys_ > 0) {
+    if (action_id >= ActionIds::BuyBase() &&
+        action_id < ActionIds::BuyBase() + kNumSupplyPiles && buys_ > 0) {
       int j = action_id - ActionIds::BuyBase();
       if (supply_piles_[j] > 0) {
-        const Card& spec = GetCardSpec(supply_types_[j]);
+        const Card &spec = GetCardSpec(supply_types_[j]);
         if (coins_ >= spec.cost_) {
           coins_ -= spec.cost_;
           buys_ -= 1;
@@ -461,10 +511,11 @@ void DominionState::DoApplyAction(Action action_id) {
 
 void DominionState::EndBuyCleanup() {
   // Cleanup end of turn for current_player_
-  auto& ps = player_states_[current_player_];
+  auto &ps = player_states_[current_player_];
   last_player_to_go_ = current_player_;
-  auto move_all = [&](std::vector<CardName>& from) {
-    for (auto c : from) ps.discard_.push_back(c);
+  auto move_all = [&](std::vector<CardName> &from) {
+    for (auto c : from)
+      ps.discard_.push_back(c);
     from.clear();
   };
   move_all(ps.hand_);
@@ -480,5 +531,5 @@ void DominionState::EndBuyCleanup() {
   phase_ = Phase::actionPhase;
 }
 
-}  // namespace dominion
-}  // namespace open_spiel
+} // namespace dominion
+} // namespace open_spiel
