@@ -26,7 +26,11 @@ struct DominionTestHarness {
     int cnt = 0; for (int j=0;j<kNumSupplyPiles;++j) cnt += s->player_states_[player].hand_counts_[j];
     return cnt;
   }
-  static int DiscardSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].discard_.size()); }
+  static int DiscardSize(DominionState* s, int player) {
+    int cnt = 0; for (int j=0;j<kNumSupplyPiles;++j) cnt += s->player_states_[player].discard_counts_[j];
+    return cnt;
+  }
+  
   static bool HasObsState(DominionState* s, int player) { return s->player_states_[player].obs_state != nullptr; }
   static const ObservationState* Obs(DominionState* s, int player) { return s->player_states_[player].obs_state.get(); }
   static int CurrentPlayer(DominionState* s) { return s->current_player_; }
@@ -38,7 +42,7 @@ struct DominionTestHarness {
   static void ResetPlayer(DominionState* s, int player) {
     s->player_states_[player].deck_.clear();
     s->player_states_[player].hand_counts_.fill(0);
-    s->player_states_[player].discard_.clear();
+    s->player_states_[player].discard_counts_.fill(0);
   }
   static void AddCardToDeck(DominionState* s, int player, CardName card) {
     s->player_states_[player].deck_.push_back(card);
@@ -48,7 +52,8 @@ struct DominionTestHarness {
     if (idx >= 0 && idx < kNumSupplyPiles) s->player_states_[player].hand_counts_[idx] += 1;
   }
   static void AddCardToDiscard(DominionState* s, int player, CardName card) {
-    s->player_states_[player].discard_.push_back(card);
+    int idx = static_cast<int>(card);
+    if (idx >= 0 && idx < kNumSupplyPiles) s->player_states_[player].discard_counts_[idx] += 1;
   }
   static void SetProvinceEmpty(DominionState* s) {
     s->supply_piles_[5] = 0; // Province index
@@ -275,7 +280,7 @@ static void TestInitialConstructorState() {
     // Deck and discard sizes per ObservationState should match actual vectors.
     int deck_size = static_cast<int>(obs->player_deck.size());
     SPIEL_CHECK_EQ(deck_size, DominionTestHarness::DeckSize(ds, p));
-    int discard_size = static_cast<int>(obs->player_discard.size());
+    int discard_size = 0; for (int j=0;j<kNumSupplyPiles;++j) discard_size += obs->player_discard_counts[j];
     SPIEL_CHECK_EQ(discard_size, DominionTestHarness::DiscardSize(ds, p));
   }
 

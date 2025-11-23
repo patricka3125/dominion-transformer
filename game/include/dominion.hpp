@@ -46,13 +46,13 @@ enum class PendingChoice {
 struct ObservationState {
   std::array<int, kNumSupplyPiles> &player_hand_counts;
   std::vector<CardName> &player_deck;
-  std::vector<CardName> &player_discard;
+  std::array<int, kNumSupplyPiles> &player_discard_counts;
   std::map<CardName, int> opponent_known_counts; // combined known set of opponent's hand+deck+discard
 
   ObservationState(std::array<int, kNumSupplyPiles> &hand_counts,
                    std::vector<CardName> &deck,
-                   std::vector<CardName> &discard)
-      : player_hand_counts(hand_counts), player_deck(deck), player_discard(discard) {}
+                   std::array<int, kNumSupplyPiles> &discard_counts)
+      : player_hand_counts(hand_counts), player_deck(deck), player_discard_counts(discard_counts) {}
   ObservationState(const ObservationState &other) = default;
 
   std::map<CardName, int> KnownDeckCounts() const {
@@ -62,7 +62,9 @@ struct ObservationState {
   }
   std::map<CardName, int> KnownDiscardCounts() const {
     std::map<CardName, int> out;
-    for (auto cn : player_discard) out[cn] += 1;
+    for (int j = 0; j < kNumSupplyPiles; ++j) {
+      if (player_discard_counts[j] > 0) out[static_cast<CardName>(j)] = player_discard_counts[j];
+    }
     return out;
   }
 
@@ -71,7 +73,7 @@ struct ObservationState {
 struct PlayerState {
   std::vector<CardName> deck_;
   std::array<int, kNumSupplyPiles> hand_counts_{};
-  std::vector<CardName> discard_;
+  std::array<int, kNumSupplyPiles> discard_counts_{};
   std::vector<Action> history_;
   PendingChoice pending_choice = PendingChoice::None;
   int pending_discard_count =
@@ -97,7 +99,7 @@ struct PlayerState {
 
   PlayerState() = default;
   PlayerState(const PlayerState &other)
-      : deck_(other.deck_), hand_counts_(other.hand_counts_), discard_(other.discard_),
+      : deck_(other.deck_), hand_counts_(other.hand_counts_), discard_counts_(other.discard_counts_),
         history_(other.history_), pending_choice(other.pending_choice),
         pending_discard_count(other.pending_discard_count),
         pending_draw_equals_discard(other.pending_draw_equals_discard),
@@ -110,7 +112,7 @@ struct PlayerState {
         pending_throne_schedule_second_for(
             other.pending_throne_schedule_second_for) {
     effect_head = other.effect_head ? other.effect_head->clone() : nullptr;
-    obs_state = std::make_unique<ObservationState>(hand_counts_, deck_, discard_);
+    obs_state = std::make_unique<ObservationState>(hand_counts_, deck_, discard_counts_);
   }
   // No copy-assignment: deep copy supported via copy constructor; assignment is
   // intentionally omitted.

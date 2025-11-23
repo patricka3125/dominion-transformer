@@ -32,7 +32,7 @@ struct DominionTestHarness {
   static int HandSize(DominionState* s, int player) { int c=0; for(int j=0;j<kNumSupplyPiles;++j) c+=s->player_states_[player].hand_counts_[j]; return c; }
   static int PlayAreaSize(DominionState* s) { return static_cast<int>(s->play_area_.size()); }
   static int DeckSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].deck_.size()); }
-  static int DiscardSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].discard_.size()); }
+  static int DiscardSize(DominionState* s, int player) { int c=0; for(int j=0;j<kNumSupplyPiles;++j) c+=s->player_states_[player].discard_counts_[j]; return c; }
   static int SupplyCount(DominionState* s, int j) { return s->supply_piles_[j]; }
 };
 } }

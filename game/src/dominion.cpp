@@ -103,11 +103,18 @@ void DominionState::DrawCardsFor(int player, int n) {
   };
   for (int i = 0; i < n; ++i) {
     if (ps.deck_.empty()) {
-      if (ps.discard_.empty())
+      int discard_size = 0; for (int jj=0;jj<kNumSupplyPiles;++jj) discard_size += ps.discard_counts_[jj];
+      if (discard_size == 0)
         break;
-      shuffle_vec(ps.discard_);
-      ps.deck_.insert(ps.deck_.end(), ps.discard_.begin(), ps.discard_.end());
-      ps.discard_.clear();
+      // Expand discard counts to a vector, shuffle, and move into deck.
+      std::vector<CardName> tmp;
+      tmp.reserve(discard_size);
+      for (int jj = 0; jj < kNumSupplyPiles; ++jj) {
+        for (int k = 0; k < ps.discard_counts_[jj]; ++k) tmp.push_back(static_cast<CardName>(jj));
+        ps.discard_counts_[jj] = 0;
+      }
+      shuffle_vec(tmp);
+      ps.deck_.insert(ps.deck_.end(), tmp.begin(), tmp.end());
     }
     int idx = static_cast<int>(ps.deck_.back());
     if (idx >= 0 && idx < kNumSupplyPiles) {
@@ -142,10 +149,10 @@ DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
   for (int p = 0; p < kNumPlayers; ++p) {
     auto &ps = player_states_[p];
     ps.deck_.clear();
-    ps.discard_.clear();
+    ps.discard_counts_.fill(0);
     ps.hand_counts_.fill(0);
     ps.obs_state =
-        std::make_unique<ObservationState>(ps.hand_counts_, ps.deck_, ps.discard_);
+        std::make_unique<ObservationState>(ps.hand_counts_, ps.deck_, ps.discard_counts_);
     for (int i = 0; i < 7; ++i) {
       ps.deck_.push_back(CardName::CARD_Copper);
     }
@@ -248,7 +255,8 @@ std::string DominionState::ObservationString(int player) const {
   }
   s += "\n";
   s += std::string("DeckSize: ") + std::to_string(ps_me.deck_.size()) + "\n";
-  s += std::string("DiscardSize: ") + std::to_string(ps_me.discard_.size()) +
+  int discard_me_sz = 0; for (int j=0;j<kNumSupplyPiles;++j) discard_me_sz += ps_me.discard_counts_[j];
+  s += std::string("DiscardSize: ") + std::to_string(discard_me_sz) +
        "\n";
 
   // Opponent privates are hidden; expose sizes only.
@@ -257,8 +265,9 @@ std::string DominionState::ObservationString(int player) const {
        "\n";
   s += std::string("OpponentDeckSize: ") + std::to_string(ps_opp.deck_.size()) +
        "\n";
+  int discard_opp_sz = 0; for (int j=0;j<kNumSupplyPiles;++j) discard_opp_sz += ps_opp.discard_counts_[j];
   s += std::string("OpponentDiscardSize: ") +
-       std::to_string(ps_opp.discard_.size()) + "\n";
+       std::to_string(discard_opp_sz) + "\n";
 
   // Public supply counts.
   s += "Supply: ";
@@ -349,16 +358,16 @@ static int CountVP(const PlayerState &ps) {
   auto count_all = [&](CardName name) {
     int idx = static_cast<int>(name);
     int in_hand = (idx >= 0 && idx < kNumSupplyPiles) ? ps.hand_counts_[idx] : 0;
-    return std::count(ps.deck_.begin(), ps.deck_.end(), name) +
-           std::count(ps.discard_.begin(), ps.discard_.end(), name) +
-           in_hand;
+    int in_discard = (idx >= 0 && idx < kNumSupplyPiles) ? ps.discard_counts_[idx] : 0;
+    return std::count(ps.deck_.begin(), ps.deck_.end(), name) + in_discard + in_hand;
   };
   int estates = count_all(CardName::CARD_Estate);
   int duchies = count_all(CardName::CARD_Duchy);
   int provinces = count_all(CardName::CARD_Province);
   int curses = count_all(CardName::CARD_Curse);
   int gardens = count_all(CardName::CARD_Gardens);
-  int total_cards = static_cast<int>(ps.deck_.size() + ps.discard_.size());
+  int total_cards = static_cast<int>(ps.deck_.size());
+  for (int j = 0; j < kNumSupplyPiles; ++j) total_cards += ps.discard_counts_[j];
   for (int j = 0; j < kNumSupplyPiles; ++j) total_cards += ps.hand_counts_[j];
   vp += estates * 1 + duchies * 3 + provinces * 6;
   vp -= curses * 1;
@@ -479,7 +488,7 @@ void DominionState::DoApplyAction(Action action_id) {
         if (coins_ >= spec.cost_) {
           coins_ -= spec.cost_;
           buys_ -= 1;
-          ps.discard_.push_back(static_cast<CardName>(j));
+          ps.discard_counts_[j] += 1;
           supply_piles_[j] -= 1;
           if (buys_ == 0) {
             EndBuyCleanup();
@@ -499,15 +508,14 @@ void DominionState::EndBuyCleanup() {
   // Move all hand counts to discard.
   for (int j = 0; j < kNumSupplyPiles; ++j) {
     int cnt = ps.hand_counts_[j];
-    for (int k = 0; k < cnt; ++k) ps.discard_.push_back(static_cast<CardName>(j));
+    ps.discard_counts_[j] += cnt;
     ps.hand_counts_[j] = 0;
   }
-  auto move_all_vec = [&](std::vector<CardName> &from) {
-    for (auto c : from) ps.discard_.push_back(c);
-    from.clear();
-  };
-  move_all_vec(play_area_);
-  move_all_vec(play_area_);
+  for (auto c : play_area_) {
+    int idx = static_cast<int>(c);
+    if (idx >= 0 && idx < kNumSupplyPiles) ps.discard_counts_[idx] += 1;
+  }
+  play_area_.clear();
 
   // Reset and switch the next player
   coins_ = 0;

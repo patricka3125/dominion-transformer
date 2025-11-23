@@ -68,7 +68,7 @@ bool Card::GainFromBoardHandler(DominionState& st, int pl, Action action_id) {
     SPIEL_CHECK_TRUE(st.supply_piles_[j] > 0);
     const Card& spec = GetCardSpec(static_cast<CardName>(j));
     if (spec.cost_ <= p.pending_gain_max_cost) {
-      st.player_states_[pl].discard_.push_back(static_cast<CardName>(j));
+      st.player_states_[pl].discard_counts_[j] += 1;
       st.supply_piles_[j] -= 1;
       p.ClearBoardSelection();
       p.pending_choice = PendingChoice::None;
@@ -109,7 +109,7 @@ bool Card::CellarHandSelectHandler(DominionState& st, int pl, Action action_id) 
   auto on_select = [](DominionState& st2, int pl2, int j) {
     auto& p2 = st2.player_states_[pl2];
     CardName cn = static_cast<CardName>(j);
-    p2.discard_.push_back(cn);
+    p2.discard_counts_[j] += 1;
     p2.hand_counts_[j] -= 1;
   };
   auto on_finish = [](DominionState& st2, int pl2) {
@@ -147,8 +147,7 @@ bool Card::MilitiaOpponentDiscardHandler(DominionState& st, int pl, Action actio
   auto on_select = [](DominionState& st2, int pl2, int j) {
     auto& p2 = st2.player_states_[pl2];
     if (p2.hand_counts_[j] > 0) {
-      CardName cn = static_cast<CardName>(j);
-      p2.discard_.push_back(cn);
+      p2.discard_counts_[j] += 1;
       p2.hand_counts_[j] -= 1;
     }
   };
@@ -169,7 +168,7 @@ void Card::WitchAttackGiveCurse(DominionState& st, int player) {
   int curse_idx = static_cast<int>(CardName::CARD_Curse);
   SPIEL_CHECK_TRUE(curse_idx >= 0 && curse_idx < kNumSupplyPiles);
   if (st.supply_piles_[curse_idx] > 0) {
-    st.player_states_[opp].discard_.push_back(CardName::CARD_Curse);
+    st.player_states_[opp].discard_counts_[curse_idx] += 1;
     st.supply_piles_[curse_idx] -= 1;
   }
 }
