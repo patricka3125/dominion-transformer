@@ -226,9 +226,9 @@ bool Card::ThroneRoomSelectActionHandler(DominionState& st, int pl, Action actio
 // Card spec registry: base set subset sufficient for tests.
 static const std::map<CardName, Card>& CardRegistry() {
   static std::map<CardName, Card> reg = {
-    {CardName::CARD_Copper,    Card{CardName::CARD_Copper,   "Copper",    {CardType::TREASURE}, 0, 1, 0}},
-    {CardName::CARD_Silver,    Card{CardName::CARD_Silver,   "Silver",    {CardType::TREASURE}, 3, 2, 0}},
-    {CardName::CARD_Gold,      Card{CardName::CARD_Gold,     "Gold",      {CardType::TREASURE}, 6, 3, 0}},
+    {CardName::CARD_Copper,    Card{CardName::CARD_Copper,   "Copper",    {CardType::BASIC_TREASURE}, 0, 1, 0}},
+    {CardName::CARD_Silver,    Card{CardName::CARD_Silver,   "Silver",    {CardType::BASIC_TREASURE}, 3, 2, 0}},
+    {CardName::CARD_Gold,      Card{CardName::CARD_Gold,     "Gold",      {CardType::BASIC_TREASURE}, 6, 3, 0}},
     {CardName::CARD_Estate,    Card{CardName::CARD_Estate,   "Estate",    {CardType::VICTORY},  2, 0, 1}},
     {CardName::CARD_Duchy,     Card{CardName::CARD_Duchy,    "Duchy",     {CardType::VICTORY},  5, 0, 3}},
     {CardName::CARD_Province,  Card{CardName::CARD_Province, "Province",  {CardType::VICTORY},  8, 0, 6}},

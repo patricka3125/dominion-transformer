@@ -170,6 +170,12 @@ protected:
   void DoApplyAction(Action action_id) override;
   void EndBuyCleanup();
 
+  // Automatically transition to buy phase when there are no playable action
+  // cards in hand or when the player has 0 actions remaining. This should only
+  // run when there is no pending effect/choice, to avoid skipping required
+  // selections.
+  void MaybeAutoAdvanceToBuyPhase();
+
 private:
   Player current_player_ = 0;
   int coins_ = 0;

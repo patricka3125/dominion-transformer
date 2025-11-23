@@ -338,5 +338,5 @@ static void TestAutoEndOnLastBuy() {
   // After spending last buy, turn should auto-end.
   SPIEL_CHECK_EQ(DominionTestHarness::TurnNumber(ds), turn_before + 1);
   SPIEL_CHECK_EQ(DominionTestHarness::CurrentPlayer(ds), 1 - player_before);
-  SPIEL_CHECK_EQ(static_cast<int>(DominionTestHarness::PhaseVal(ds)), static_cast<int>(open_spiel::dominion::Phase::actionPhase));
+  SPIEL_CHECK_EQ(static_cast<int>(DominionTestHarness::PhaseVal(ds)), static_cast<int>(open_spiel::dominion::Phase::buyPhase));
 }

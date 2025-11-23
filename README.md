@@ -23,5 +23,6 @@ Dominion should have a similar structure, except that Dominion is an imperfect i
 To keep the codebase organized, let's define all struct contents in a new file.
 
 * Need to implement cycle decay when a player passes turn without doing anything (end action -> end buy). One idea is to maintain a global visited state set. If a player finishes a turn and the game state is the same as when it started, then a penalty should be added to their utility.
+    * A penalty should be added if an action is selected that is unnecessary. e.g. play 1 copper, buy a curse. (when they could've just bought the curse without playing the copper).
     * (optional)Set  games that exceed 30 turns to terminal, or a sever utility punishment.
 * Need to implement supporting logic for chance nodes for kSampleStochasity

@@ -109,11 +109,12 @@ enum class CardName {
 
 // Compact storage for card types (optional)
 enum class CardType : uint8_t {
-    TREASURE,
+    BASIC_TREASURE,
     ACTION ,
     VICTORY,
     CURSE,
-    ATTACK
+    ATTACK,
+    SPECIAL_TREASURE // placeholder (does not exist in base set)
 };
 
 struct CardOptions {

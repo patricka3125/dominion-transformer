@@ -195,7 +195,7 @@ std::vector<Action> DominionState::LegalActions() const {
     for (int j = 0; j < kNumSupplyPiles; ++j) {
       if (ps.hand_counts_[j] <= 0) continue;
       const Card &spec = GetCardSpec(static_cast<CardName>(j));
-      if (HasType(spec, CardType::TREASURE)) {
+      if (HasType(spec, CardType::BASIC_TREASURE) || HasType(spec, CardType::SPECIAL_TREASURE)) {
         actions.push_back(ActionIds::PlayHandIndex(j));
       }
     }
@@ -425,6 +425,9 @@ void DominionState::DoApplyAction(Action action_id) {
           break;
         }
       }
+      // If we are in action phase and there is no longer any pending effect,
+      // auto-advance to buy phase when appropriate.
+      MaybeAutoAdvanceToBuyPhase();
       return;
     }
   }
@@ -458,7 +461,7 @@ void DominionState::DoApplyAction(Action action_id) {
       SPIEL_CHECK_TRUE(ps.hand_counts_[j] > 0);
       CardName cn = static_cast<CardName>(j);
       const Card &spec = GetCardSpec(cn);
-      if (HasType(spec, CardType::TREASURE)) {
+      if (HasType(spec, CardType::BASIC_TREASURE) || HasType(spec, CardType::SPECIAL_TREASURE)) {
         play_area_.push_back(cn);
         ps.hand_counts_[j] -= 1;
         spec.play(*this, current_player_);
@@ -512,6 +515,31 @@ void DominionState::EndBuyCleanup() {
   DrawCardsFor(current_player_, 5);
   current_player_ = 1 - current_player_;
   phase_ = Phase::actionPhase;
+  // Optimization: if the next player has no legal action plays or zero actions,
+  // move directly to buy phase to skip an unnecessary EndActions.
+  MaybeAutoAdvanceToBuyPhase();
+}
+
+void DominionState::MaybeAutoAdvanceToBuyPhase() {
+  // Only consider auto-advancing when in action phase and not in the middle of
+  // resolving an effect/choice.
+  auto &ps = player_states_[current_player_];
+  if (phase_ != Phase::actionPhase) return;
+  if (ps.effect_head || ps.pending_choice != PendingChoice::None) return;
+
+  // If the player has zero actions, or has no action cards in hand, switch.
+  if (actions_ <= 0) {
+    phase_ = Phase::buyPhase;
+    return;
+  }
+
+  bool has_playable_action = false;
+  for (int j = 0; j < kNumSupplyPiles; ++j) {
+    if (ps.hand_counts_[j] <= 0) continue;
+    const Card &spec = GetCardSpec(static_cast<CardName>(j));
+    if (HasType(spec, CardType::ACTION)) { has_playable_action = true; break; }
+  }
+  if (!has_playable_action) phase_ = Phase::buyPhase;
 }
 
 } // namespace dominion
