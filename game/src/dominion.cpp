@@ -90,14 +90,6 @@ static std::string FormatActionPair(Action a) {
   return std::to_string(static_cast<int>(a)) + ":" +
          ActionNames::Name(a, kNumSupplyPiles);
 }
-
-static void BuildCounts(std::map<CardName, int> &out,
-                        const std::vector<CardName> &vec) {
-  out.clear();
-  for (auto cn : vec) {
-    out[cn] += 1;
-  }
-}
 } // namespace
 
 void DominionState::DrawCardsFor(int player, int n) {
@@ -117,7 +109,10 @@ void DominionState::DrawCardsFor(int player, int n) {
       ps.deck_.insert(ps.deck_.end(), ps.discard_.begin(), ps.discard_.end());
       ps.discard_.clear();
     }
-    ps.hand_.push_back(ps.deck_.back());
+    int idx = static_cast<int>(ps.deck_.back());
+    if (idx >= 0 && idx < kNumSupplyPiles) {
+      ps.hand_counts_[idx] += 1;
+    }
     ps.deck_.pop_back();
   }
 }
@@ -126,44 +121,31 @@ DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
   // Shuffle initial decks using game RNG for reproducibility.
   const auto *dom_game = dynamic_cast<const DominionGame *>(game_.get());
   std::mt19937 *rng = dom_game ? dom_game->rng() : nullptr;
-  // Supply types: base and kingdom piles
-  supply_types_[0] = CardName::CARD_Copper;
-  supply_types_[1] = CardName::CARD_Silver;
-  supply_types_[2] = CardName::CARD_Gold;
-  supply_types_[3] = CardName::CARD_Estate;
-  supply_types_[4] = CardName::CARD_Duchy;
-  supply_types_[5] = CardName::CARD_Province;
-  supply_types_[6] = CardName::CARD_Curse;
-  supply_types_[7] = CardName::CARD_Cellar;
-  supply_types_[8] = CardName::CARD_Market;
-  supply_types_[9] = CardName::CARD_Militia;
-  supply_types_[10] = CardName::CARD_Mine;
-  supply_types_[11] = CardName::CARD_Moat;
-  supply_types_[12] = CardName::CARD_Remodel;
-  supply_types_[13] = CardName::CARD_Smithy;
-  supply_types_[14] = CardName::CARD_Village;
-  supply_types_[15] = CardName::CARD_Workshop;
-  supply_types_[16] = CardName::CARD_Festival;
 
-  // Supply counts
-  supply_piles_[0] = 60;
-  supply_piles_[1] = 40;
-  supply_piles_[2] = 30;
-  supply_piles_[3] = 8;
-  supply_piles_[4] = 8;
-  supply_piles_[5] = 8;
-  supply_piles_[6] = 10;
-  for (int i = 7; i < kNumSupplyPiles; ++i)
-    supply_piles_[i] = 10;
+  // Initialize supply piles indexed by CardName; non-board cards are 0.
+  for (int j = 0; j < kNumSupplyPiles; ++j) supply_piles_[j] = 0;
+  supply_piles_[static_cast<int>(CardName::CARD_Copper)] = 60;
+  supply_piles_[static_cast<int>(CardName::CARD_Silver)] = 40;
+  supply_piles_[static_cast<int>(CardName::CARD_Gold)] = 30;
+  supply_piles_[static_cast<int>(CardName::CARD_Estate)] = 8;
+  supply_piles_[static_cast<int>(CardName::CARD_Duchy)] = 8;
+  supply_piles_[static_cast<int>(CardName::CARD_Province)] = 8;
+  supply_piles_[static_cast<int>(CardName::CARD_Curse)] = 10;
+  std::array<CardName, 10> kingdom = {CardName::CARD_Cellar,  CardName::CARD_Market,  CardName::CARD_Militia,
+                                      CardName::CARD_Mine,    CardName::CARD_Moat,    CardName::CARD_Remodel,
+                                      CardName::CARD_Smithy,  CardName::CARD_Village, CardName::CARD_Workshop,
+                                      CardName::CARD_Festival};
+  for (CardName cn : kingdom) supply_piles_[static_cast<int>(cn)] = 10;
+  initial_supply_piles_ = supply_piles_;
 
   // Initial decks and hands
   for (int p = 0; p < kNumPlayers; ++p) {
     auto &ps = player_states_[p];
     ps.deck_.clear();
     ps.discard_.clear();
-    ps.hand_.clear();
+    ps.hand_counts_.fill(0);
     ps.obs_state =
-        std::make_unique<ObservationState>(ps.hand_, ps.deck_, ps.discard_);
+        std::make_unique<ObservationState>(ps.hand_counts_, ps.deck_, ps.discard_);
     for (int i = 0; i < 7; ++i) {
       ps.deck_.push_back(CardName::CARD_Copper);
     }
@@ -200,40 +182,28 @@ std::vector<Action> DominionState::LegalActions() const {
   }
   if (phase_ == Phase::actionPhase) {
     if (actions_ > 0) {
-      std::array<bool, kNumCardTypes> seen{};
-      for (int i = 0; i < static_cast<int>(ps.hand_.size()); ++i) {
-        CardName cn = ps.hand_[i];
-        const Card &spec = GetCardSpec(cn);
+      for (int j = 0; j < kNumSupplyPiles; ++j) {
+        if (ps.hand_counts_[j] <= 0) continue;
+        const Card &spec = GetCardSpec(static_cast<CardName>(j));
         if (HasType(spec, CardType::ACTION)) {
-          int cidx = static_cast<int>(cn);
-          if (cidx >= 0 && cidx < kNumCardTypes && !seen[cidx]) {
-            actions.push_back(ActionIds::PlayHandIndex(i));
-            seen[cidx] = true;
-          }
+          actions.push_back(ActionIds::PlayHandIndex(j));
         }
       }
     }
     actions.push_back(ActionIds::EndActions());
   } else if (phase_ == Phase::buyPhase) {
-    std::array<bool, kNumCardTypes> seen{};
-    for (int i = 0; i < static_cast<int>(ps.hand_.size()); ++i) {
-      CardName cn = ps.hand_[i];
-      const Card &spec = GetCardSpec(cn);
+    for (int j = 0; j < kNumSupplyPiles; ++j) {
+      if (ps.hand_counts_[j] <= 0) continue;
+      const Card &spec = GetCardSpec(static_cast<CardName>(j));
       if (HasType(spec, CardType::TREASURE)) {
-        int cidx = static_cast<int>(cn);
-        if (cidx >= 0 && cidx < kNumCardTypes && !seen[cidx]) {
-          actions.push_back(ActionIds::PlayHandIndex(i));
-          seen[cidx] = true;
-        }
+        actions.push_back(ActionIds::PlayHandIndex(j));
       }
     }
     if (buys_ > 0) {
       for (int j = 0; j < kNumSupplyPiles; ++j) {
-        if (supply_piles_[j] <= 0)
-          continue;
-        const Card &spec = GetCardSpec(supply_types_[j]);
-        if (coins_ >= spec.cost_)
-          actions.push_back(ActionIds::BuyFromSupply(j));
+        if (supply_piles_[j] <= 0) continue;
+        const Card &spec = GetCardSpec(static_cast<CardName>(j));
+        if (coins_ >= spec.cost_) actions.push_back(ActionIds::BuyFromSupply(j));
       }
     }
     actions.push_back(ActionIds::EndBuy());
@@ -244,9 +214,7 @@ std::vector<Action> DominionState::LegalActions() const {
 
 std::string DominionState::ActionToString(Player /*player*/,
                                           Action action_id) const {
-  const auto &ps_act = player_states_[current_player_];
-  return ActionNames::NameWithCard(action_id, kNumSupplyPiles, ps_act.hand_,
-                                   supply_types_.data());
+  return ActionNames::NameWithCard(action_id, kNumSupplyPiles);
 }
 
 // Per-player observation string: only include public info and the player's own
@@ -268,10 +236,13 @@ std::string DominionState::ObservationString(int player) const {
 
   // Show only this player's hand contents; deck and discard sizes only.
   s += "Hand: ";
-  for (size_t i = 0; i < ps_me.hand_.size(); ++i) {
-    if (i)
-      s += " ";
-    s += card_name(ps_me.hand_[i]);
+  bool first_hand = true;
+  for (int j = 0; j < kNumSupplyPiles; ++j) {
+    int cnt = ps_me.hand_counts_[j];
+    if (cnt <= 0) continue;
+    if (!first_hand) s += " ";
+    first_hand = false;
+    s += card_name(static_cast<CardName>(j)) + std::string("x") + std::to_string(cnt);
   }
   s += "\n";
   s += std::string("DeckSize: ") + std::to_string(ps_me.deck_.size()) + "\n";
@@ -279,7 +250,8 @@ std::string DominionState::ObservationString(int player) const {
        "\n";
 
   // Opponent privates are hidden; expose sizes only.
-  s += std::string("OpponentHandSize: ") + std::to_string(ps_opp.hand_.size()) +
+  int opp_hand_size = 0; for (int j=0;j<kNumSupplyPiles;++j) opp_hand_size += ps_opp.hand_counts_[j];
+  s += std::string("OpponentHandSize: ") + std::to_string(opp_hand_size) +
        "\n";
   s += std::string("OpponentDeckSize: ") + std::to_string(ps_opp.deck_.size()) +
        "\n";
@@ -288,12 +260,14 @@ std::string DominionState::ObservationString(int player) const {
 
   // Public supply counts.
   s += "Supply: ";
+  bool first_supply = true;
   for (int i = 0; i < kNumSupplyPiles; ++i) {
-    if (i)
-      s += ", ";
+    if (initial_supply_piles_[i] == 0) continue;
+    if (!first_supply) s += ", ";
+    first_supply = false;
     s += std::to_string(i);
     s += ":";
-    s += card_name(supply_types_[i]);
+    s += card_name(static_cast<CardName>(i));
     s += "=" + std::to_string(supply_piles_[i]);
   }
   s += "\n";
@@ -323,16 +297,15 @@ std::string DominionState::ObservationString(int player) const {
         s += ", ";
       const Action a = las[i];
       std::string a_str = FormatActionPair(a);
-      if (a < ActionIds::BuyBase()) {
+      if (a < ActionIds::MaxHandSize()) {
         int idx = static_cast<int>(a);
-        if (idx >= 0 && idx < static_cast<int>(ps_me.hand_.size())) {
-          a_str += " (" + card_name(ps_me.hand_[idx]) + ")";
+        if (idx >= 0 && idx < kNumSupplyPiles) {
+          a_str += " (" + card_name(static_cast<CardName>(idx)) + ")";
         }
-      } else if (a >= ActionIds::BuyBase() &&
-                 a < ActionIds::BuyBase() + kNumSupplyPiles) {
+      } else if (a >= ActionIds::BuyBase() && a < ActionIds::BuyBase() + kNumSupplyPiles) {
         int j = static_cast<int>(a) - ActionIds::BuyBase();
         if (j >= 0 && j < kNumSupplyPiles) {
-          a_str += " (" + card_name(supply_types_[j]) + ")";
+          a_str += " (" + card_name(static_cast<CardName>(j)) + ")";
         }
       }
       s += a_str;
@@ -361,30 +334,30 @@ std::string DominionState::ToString() const {
 }
 
 bool DominionState::IsTerminal() const {
+  if (supply_piles_[static_cast<int>(CardName::CARD_Province)] == 0) return true;
   int empty = 0;
-  for (int i = 0; i < kNumSupplyPiles; ++i)
-    empty += (supply_piles_[i] == 0);
-  if (supply_piles_[5] == 0)
-    return true;
-  if (empty >= 3)
-    return true;
-  return false;
+  for (int i = 0; i < kNumSupplyPiles; ++i) {
+    if (initial_supply_piles_[i] > 0 && supply_piles_[i] == 0) empty += 1;
+  }
+  return empty >= 3;
 }
 
 static int CountVP(const PlayerState &ps) {
   int vp = 0;
   auto count_all = [&](CardName name) {
+    int idx = static_cast<int>(name);
+    int in_hand = (idx >= 0 && idx < kNumSupplyPiles) ? ps.hand_counts_[idx] : 0;
     return std::count(ps.deck_.begin(), ps.deck_.end(), name) +
            std::count(ps.discard_.begin(), ps.discard_.end(), name) +
-           std::count(ps.hand_.begin(), ps.hand_.end(), name);
+           in_hand;
   };
   int estates = count_all(CardName::CARD_Estate);
   int duchies = count_all(CardName::CARD_Duchy);
   int provinces = count_all(CardName::CARD_Province);
   int curses = count_all(CardName::CARD_Curse);
   int gardens = count_all(CardName::CARD_Gardens);
-  int total_cards =
-      static_cast<int>(ps.deck_.size() + ps.discard_.size() + ps.hand_.size());
+  int total_cards = static_cast<int>(ps.deck_.size() + ps.discard_.size());
+  for (int j = 0; j < kNumSupplyPiles; ++j) total_cards += ps.hand_counts_[j];
   vp += estates * 1 + duchies * 3 + provinces * 6;
   vp -= curses * 1;
   vp += gardens * (total_cards / 10);
@@ -460,13 +433,15 @@ void DominionState::DoApplyAction(Action action_id) {
       phase_ = Phase::buyPhase;
       return;
     }
-    if (action_id < ActionIds::BuyBase() && actions_ > 0 &&
-        action_id < static_cast<Action>(ps.hand_.size())) {
-      CardName cn = ps.hand_[action_id];
+    if (action_id < ActionIds::MaxHandSize() && actions_ > 0) {
+      int j = static_cast<int>(action_id);
+      SPIEL_CHECK_TRUE(j >= 0 && j < kNumSupplyPiles);
+      SPIEL_CHECK_TRUE(ps.hand_counts_[j] > 0);
+      CardName cn = static_cast<CardName>(j);
       const Card &spec = GetCardSpec(cn);
       if (HasType(spec, CardType::ACTION)) {
         play_area_.push_back(cn);
-        ps.hand_.erase(ps.hand_.begin() + action_id);
+        ps.hand_counts_[j] -= 1;
         actions_ -= 1;
         spec.play(*this, current_player_);
         spec.applyEffect(*this, current_player_);
@@ -477,13 +452,15 @@ void DominionState::DoApplyAction(Action action_id) {
       EndBuyCleanup();
       return;
     }
-    if (action_id < ActionIds::BuyBase() &&
-        action_id < static_cast<Action>(ps.hand_.size())) {
-      CardName cn = ps.hand_[action_id];
+    if (action_id < ActionIds::MaxHandSize()) {
+      int j = static_cast<int>(action_id);
+      SPIEL_CHECK_TRUE(j >= 0 && j < kNumSupplyPiles);
+      SPIEL_CHECK_TRUE(ps.hand_counts_[j] > 0);
+      CardName cn = static_cast<CardName>(j);
       const Card &spec = GetCardSpec(cn);
       if (HasType(spec, CardType::TREASURE)) {
         play_area_.push_back(cn);
-        ps.hand_.erase(ps.hand_.begin() + action_id);
+        ps.hand_counts_[j] -= 1;
         spec.play(*this, current_player_);
       }
       return;
@@ -491,12 +468,13 @@ void DominionState::DoApplyAction(Action action_id) {
     if (action_id >= ActionIds::BuyBase() &&
         action_id < ActionIds::BuyBase() + kNumSupplyPiles && buys_ > 0) {
       int j = action_id - ActionIds::BuyBase();
+      SPIEL_CHECK_TRUE(j >= 0 && j < kNumSupplyPiles);
       if (supply_piles_[j] > 0) {
-        const Card &spec = GetCardSpec(supply_types_[j]);
+        const Card &spec = GetCardSpec(static_cast<CardName>(j));
         if (coins_ >= spec.cost_) {
           coins_ -= spec.cost_;
           buys_ -= 1;
-          ps.discard_.push_back(supply_types_[j]);
+          ps.discard_.push_back(static_cast<CardName>(j));
           supply_piles_[j] -= 1;
           if (buys_ == 0) {
             EndBuyCleanup();
@@ -513,13 +491,18 @@ void DominionState::EndBuyCleanup() {
   // Cleanup end of turn for current_player_
   auto &ps = player_states_[current_player_];
   last_player_to_go_ = current_player_;
-  auto move_all = [&](std::vector<CardName> &from) {
-    for (auto c : from)
-      ps.discard_.push_back(c);
+  // Move all hand counts to discard.
+  for (int j = 0; j < kNumSupplyPiles; ++j) {
+    int cnt = ps.hand_counts_[j];
+    for (int k = 0; k < cnt; ++k) ps.discard_.push_back(static_cast<CardName>(j));
+    ps.hand_counts_[j] = 0;
+  }
+  auto move_all_vec = [&](std::vector<CardName> &from) {
+    for (auto c : from) ps.discard_.push_back(c);
     from.clear();
   };
-  move_all(ps.hand_);
-  move_all(play_area_);
+  move_all_vec(play_area_);
+  move_all_vec(play_area_);
 
   // Reset and switch the next player
   coins_ = 0;
