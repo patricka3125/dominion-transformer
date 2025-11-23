@@ -2,6 +2,8 @@
 #define OPEN_SPIEL_GAMES_DOMINION_ACTIONS_H_
 
 #include <string>
+#include <vector>
+#include "cards.hpp"
 
 #include "open_spiel/spiel.h"
 
@@ -22,10 +24,10 @@ namespace ActionIds {
   inline Action EndActions() { return static_cast<Action>(200); }
   inline Action EndBuy() { return static_cast<Action>(201); }
 
-  // Generic discard selection effect actions.
-  inline int DiscardSelectBase() { return 300; }
-  inline Action DiscardSelect(int i) { return static_cast<Action>(DiscardSelectBase() + i); }
-  inline Action DiscardFinish() { return static_cast<Action>(399); }
+  // Generic hand selection effect actions.
+  inline int HandSelectBase() { return 300; }
+  inline Action HandSelect(int i) { return static_cast<Action>(HandSelectBase() + i); }
+  inline Action HandSelectFinish() { return static_cast<Action>(399); }
 
   // Generic gain-from-supply selection actions (effect-level).
   inline int GainSelectBase() { return 500; }
@@ -36,6 +38,10 @@ namespace ActionIds {
 // to disambiguate buy actions.
 namespace ActionNames {
   std::string Name(Action action_id, int num_supply_piles);
+  std::string NameWithCard(Action action_id,
+                           int num_supply_piles,
+                           const std::vector<CardName>& hand,
+                           const CardName* supply_types);
 }
 
 } // namespace dominion
