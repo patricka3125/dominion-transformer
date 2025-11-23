@@ -164,6 +164,8 @@ DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
   buys_ = 1;
   coins_ = 0;
   phase_ = Phase::actionPhase;
+  // Optimization: if the starting hand has no playable actions, begin in buy phase.
+  MaybeAutoAdvanceToBuyPhase();
 }
 
 Player DominionState::CurrentPlayer() const { return current_player_; }

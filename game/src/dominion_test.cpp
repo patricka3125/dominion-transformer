@@ -291,7 +291,8 @@ static void TestInitialConstructorState() {
   SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), 1);
   SPIEL_CHECK_EQ(DominionTestHarness::Buys(ds), 1);
   SPIEL_CHECK_EQ(DominionTestHarness::Coins(ds), 0);
-  SPIEL_CHECK_EQ(static_cast<int>(DominionTestHarness::PhaseVal(ds)), static_cast<int>(open_spiel::dominion::Phase::actionPhase));
+  // With auto-advance, initial state begins in buy phase due to no action cards.
+  SPIEL_CHECK_EQ(static_cast<int>(DominionTestHarness::PhaseVal(ds)), static_cast<int>(open_spiel::dominion::Phase::buyPhase));
 }
 
 int main() {
