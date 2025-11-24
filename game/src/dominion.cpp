@@ -240,9 +240,6 @@ std::vector<Action> DominionState::LegalActions() const {
 
 std::string DominionState::ActionToString(Player player,
                                           Action action_id) const {
-  if (player == kChancePlayerId) {
-    return action_id == ActionIds::Shuffle() ? "Shuffle" : "UnknownChance";
-  }
   return ActionNames::NameWithCard(action_id, kNumSupplyPiles);
 }
 
