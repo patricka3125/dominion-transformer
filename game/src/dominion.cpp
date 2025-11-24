@@ -10,6 +10,9 @@
 
 namespace open_spiel {
 namespace dominion {
+
+using nlohmann::json;
+
 namespace {
 
 const GameType kGameType{
@@ -64,6 +67,15 @@ std::vector<int> DominionGame::ObservationTensorShape() const { return {}; }
 int DominionGame::MaxGameLength() const { return 500; }
 
 int DominionGame::MaxChanceOutcomes() const { return 1; }
+
+std::unique_ptr<State> DominionGame::NewInitialState(const json &j) const {
+  return std::unique_ptr<State>(new DominionState(shared_from_this(), j));
+}
+
+std::unique_ptr<State> DominionGame::DeserializeState(const std::string &str) const {
+  json j = json::parse(str);
+  return std::unique_ptr<State>(new DominionState(shared_from_this(), j));
+}
 
 namespace {
 static bool HasType(const Card &c, CardType t) {
@@ -145,6 +157,37 @@ DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
   MaybeAutoAdvanceToBuyPhase();
 }
 
+DominionState::DominionState(std::shared_ptr<const Game> game, const json &j)
+    : State(game) {
+  DominionStateStructContents contents = j.get<DominionStateStructContents>();
+  current_player_ = contents.current_player;
+  coins_ = contents.coins;
+  turn_number_ = contents.turn_number;
+  actions_ = contents.actions;
+  buys_ = contents.buys;
+  phase_ = static_cast<Phase>(contents.phase);
+  last_player_to_go_ = contents.last_player_to_go;
+  shuffle_pending_ = contents.shuffle_pending;
+  shuffle_pending_end_of_turn_ = contents.shuffle_pending_end_of_turn;
+  original_player_for_shuffle_ = contents.original_player_for_shuffle;
+  pending_draw_count_after_shuffle_ = contents.pending_draw_count_after_shuffle;
+  supply_piles_ = contents.supply_piles;
+  initial_supply_piles_ = contents.initial_supply_piles;
+  play_area_.clear();
+  for (int v : contents.play_area) play_area_.push_back(static_cast<CardName>(v));
+  for (int p = 0; p < kNumPlayers; ++p) {
+    if (p < static_cast<int>(contents.player_states.size())) {
+      json pj = contents.player_states[p];
+      player_states_[p].LoadFromJson(pj);
+    } else {
+      // Leave as default-initialized; ensure obs_state is set.
+      player_states_[p].obs_state = std::make_unique<ObservationState>(player_states_[p].hand_counts_, player_states_[p].deck_, player_states_[p].discard_counts_);
+    }
+  }
+  history_.clear();
+  move_number_ = contents.move_number;
+}
+
 Player DominionState::CurrentPlayer() const { return shuffle_pending_ ? kChancePlayerId : current_player_; }
 
 // Computes the legal actions for the current player.
@@ -202,6 +245,39 @@ std::string DominionState::ActionToString(Player player,
   }
   return ActionNames::NameWithCard(action_id, kNumSupplyPiles);
 }
+
+std::unique_ptr<StateStruct> DominionState::ToStruct() const {
+  DominionStateStructContents contents;
+  contents.current_player = current_player_;
+  contents.coins = coins_;
+  contents.turn_number = turn_number_;
+  contents.actions = actions_;
+  contents.buys = buys_;
+  contents.phase = static_cast<int>(phase_);
+  contents.last_player_to_go = last_player_to_go_;
+  contents.shuffle_pending = shuffle_pending_;
+  contents.shuffle_pending_end_of_turn = shuffle_pending_end_of_turn_;
+  contents.original_player_for_shuffle = original_player_for_shuffle_;
+  contents.pending_draw_count_after_shuffle = pending_draw_count_after_shuffle_;
+  contents.supply_piles = supply_piles_;
+  contents.initial_supply_piles = initial_supply_piles_;
+  contents.play_area.clear();
+  contents.play_area.reserve(play_area_.size());
+  for (auto cn : play_area_) contents.play_area.push_back(static_cast<int>(cn));
+  contents.player_states.clear();
+  contents.player_states.reserve(kNumPlayers);
+  for (int p = 0; p < kNumPlayers; ++p) {
+    auto pstruct = player_states_[p].ToStruct();
+    nlohmann::json pj = pstruct->to_json_base();
+    contents.player_states.push_back(pj.get<DominionPlayerStructContents>());
+  }
+  contents.move_number = move_number_;
+  auto ss = std::make_unique<DominionStateStruct>();
+  static_cast<DominionStateStructContents &>(*ss) = contents;
+  return ss;
+}
+
+std::string DominionState::Serialize() const { return ToJson(); }
 
 // Per-player observation string: only include public info and the player's own
 // privates.

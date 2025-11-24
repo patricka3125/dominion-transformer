@@ -77,6 +77,8 @@ using open_spiel::dominion::Phase;
 
 static void TestEndBuySwitchesPlayerAndTurnIncrements();
 static void TestAutoEndOnLastBuy();
+static void TestDominionStateJsonRoundTrip();
+static void TestDominionStateSerializeDeserialize();
 
 // Gardens: 1 VP per Gardens for every 10 total cards (deck+discard+hand).
 static void TestGardensVP() {
@@ -248,6 +250,8 @@ int main() {
   TestBasicVPCount();
   TestTieBreakerAndDrawRules();
   TestInitialConstructorState();
+  TestDominionStateJsonRoundTrip();
+  TestDominionStateSerializeDeserialize();
   return 0;
 }
 // Verify EndBuy switches to next player and increments turn number (1-based).
@@ -285,4 +289,38 @@ static void TestAutoEndOnLastBuy() {
   SPIEL_CHECK_EQ(DominionTestHarness::TurnNumber(ds), turn_before + 1);
   SPIEL_CHECK_EQ(DominionTestHarness::CurrentPlayer(ds), 1 - player_before);
   SPIEL_CHECK_EQ(static_cast<int>(DominionTestHarness::PhaseVal(ds)), static_cast<int>(open_spiel::dominion::Phase::buyPhase));
+}
+
+// Verify that ToJson and NewInitialState(json) round-trip to equivalent states.
+static void TestDominionStateJsonRoundTrip() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  std::string json_str = ds->ToJson();
+  nlohmann::json j = nlohmann::json::parse(json_str);
+  std::unique_ptr<State> state_copy = game->NewInitialState(j);
+  auto* ds_copy = dynamic_cast<DominionState*>(state_copy.get());
+  SPIEL_CHECK_TRUE(ds_copy != nullptr);
+
+  SPIEL_CHECK_EQ(ds->ToString(), ds_copy->ToString());
+  SPIEL_CHECK_EQ(DominionTestHarness::CurrentPlayer(ds), DominionTestHarness::CurrentPlayer(ds_copy));
+  SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), DominionTestHarness::Actions(ds_copy));
+  SPIEL_CHECK_EQ(DominionTestHarness::Buys(ds), DominionTestHarness::Buys(ds_copy));
+  SPIEL_CHECK_EQ(DominionTestHarness::Coins(ds), DominionTestHarness::Coins(ds_copy));
+}
+
+// Verify that Serialize and DeserializeState round-trip equivalently.
+static void TestDominionStateSerializeDeserialize() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  std::string serialized = ds->Serialize();
+  std::unique_ptr<State> state_copy = game->DeserializeState(serialized);
+  auto* ds_copy = dynamic_cast<DominionState*>(state_copy.get());
+  SPIEL_CHECK_TRUE(ds_copy != nullptr);
+  SPIEL_CHECK_EQ(ds->ToString(), ds_copy->ToString());
 }

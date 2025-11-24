@@ -14,8 +14,6 @@ namespace dominion {
 
 class DominionState;
 
-class EffectChain;
-
 // Effect processing nodes: a lightweight linked-list of pending effects
 // attached to a player. Each node may set up player state and, if needed,
 // enqueue a follow-up node via its `next` pointer.
@@ -126,7 +124,6 @@ struct CardOptions {
     std::optional<int> grant_action;
     std::optional<int> grant_draw;
     std::optional<int> grant_buy;
-    std::shared_ptr<const EffectChain> effect;
 };
 
 class Card {
@@ -142,17 +139,13 @@ public:
     int grant_draw_ = 0;   // +Cards
     int grant_buy_ = 0;    // +Buys
 
-    std::shared_ptr<const EffectChain> effect;
-
     Card(CardName kind_, std::string name_, std::vector<CardType> types_, int cost_=0, int value_=0, int vp_=0,
-         int grant_action_ = 0, int grant_draw_ = 0, int grant_buy_ = 0,
-         std::shared_ptr<const EffectChain> effect_ = nullptr)
+         int grant_action_ = 0, int grant_draw_ = 0, int grant_buy_ = 0)
       : name_(std::move(name_)),
         kind_(kind_),
         types_(std::move(types_)),
         cost_(cost_), value_(value_), vp_(vp_),
-        grant_action_(grant_action_), grant_draw_(grant_draw_), grant_buy_(grant_buy_),
-        effect(std::move(effect_)) {}
+        grant_action_(grant_action_), grant_draw_(grant_draw_), grant_buy_(grant_buy_) {}
 
     Card(const CardOptions& opt)
       : name_(opt.name),
@@ -162,8 +155,7 @@ public:
         vp_(opt.vp.value_or(0)),
         grant_action_(opt.grant_action.value_or(0)),
         grant_draw_(opt.grant_draw.value_or(0)),
-        grant_buy_(opt.grant_buy.value_or(0)),
-        effect(opt.effect) {}
+        grant_buy_(opt.grant_buy.value_or(0)) {}
 
     static Card fromOptions(const CardOptions& opt) { return Card(opt); }
 
