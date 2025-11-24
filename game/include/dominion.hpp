@@ -78,17 +78,9 @@ struct DominionPlayerStructContents {
   std::array<int, kNumSupplyPiles> hand_counts;
   std::array<int, kNumSupplyPiles> discard_counts;
   int pending_choice;
-  int pending_discard_count;
-  bool pending_draw_equals_discard;
-  int pending_gain_max_cost;
-  int pending_target_hand_size;
-  int pending_throne_select_depth;
-  int pending_last_selected_original_index;
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(
       DominionPlayerStructContents, deck, hand_counts, discard_counts,
-      pending_choice, pending_discard_count, pending_draw_equals_discard,
-      pending_gain_max_cost, pending_target_hand_size, pending_throne_select_depth,
-      pending_last_selected_original_index)
+      pending_choice)
 };
 
 struct DominionStateStructContents {
@@ -140,19 +132,8 @@ struct PlayerState {
   std::array<int, kNumSupplyPiles> discard_counts_{};
   std::vector<Action> history_;
   PendingChoice pending_choice = PendingChoice::None;
-  int pending_discard_count =
-      0; // tracks discards selected during a discard effect
-  bool pending_draw_equals_discard =
-      false; // whether finishing discard should draw equal to discards
-  int pending_gain_max_cost = 0;
-  int pending_target_hand_size =
-      0; // if > 0, force discard until reaching this hand size
-  int pending_throne_select_depth = 0; // nested Throne selection depth counter
-
-  // Stable-index selection support for ascending-order constraint during
-  // discard effects. Maps current hand indices to original indices at effect
-  // start; updated on selection.
-  int pending_last_selected_original_index = -1; // last selected enumerator id
+  // Effect-specific state moved into nodes; PlayerState retains only choice
+  // type and the effect queue.
   std::deque<std::unique_ptr<EffectNode>> effect_queue; // FIFO of pending effects
   std::unique_ptr<ObservationState> obs_state; // per-player observation state
 
@@ -162,13 +143,7 @@ struct PlayerState {
         hand_counts_(other.hand_counts_),
         discard_counts_(other.discard_counts_),
         history_(other.history_),
-        pending_choice(other.pending_choice),
-        pending_discard_count(other.pending_discard_count),
-        pending_draw_equals_discard(other.pending_draw_equals_discard),
-        pending_gain_max_cost(other.pending_gain_max_cost),
-        pending_target_hand_size(other.pending_target_hand_size),
-        pending_throne_select_depth(other.pending_throne_select_depth),
-        pending_last_selected_original_index(other.pending_last_selected_original_index) {
+        pending_choice(other.pending_choice) {
     effect_queue.clear();
     for (const auto &node_ptr : other.effect_queue) {
       if (node_ptr) {
@@ -193,12 +168,6 @@ struct PlayerState {
     discard_counts_.fill(0);
     history_.clear();
     pending_choice = PendingChoice::None;
-    pending_discard_count = 0;
-    pending_draw_equals_discard = false;
-    pending_gain_max_cost = 0;
-    pending_target_hand_size = 0;
-    pending_throne_select_depth = 0;
-    pending_last_selected_original_index = -1;
     effect_queue.clear();
     // Parse structured player contents.
     DominionPlayerStructContents contents = json.get<DominionPlayerStructContents>();
@@ -208,12 +177,6 @@ struct PlayerState {
     discard_counts_ = contents.discard_counts;
     // history_ is not serialized; leave empty on load.
     pending_choice = static_cast<PendingChoice>(contents.pending_choice);
-    pending_discard_count = contents.pending_discard_count;
-    pending_draw_equals_discard = contents.pending_draw_equals_discard;
-    pending_gain_max_cost = contents.pending_gain_max_cost;
-    pending_target_hand_size = contents.pending_target_hand_size;
-    pending_throne_select_depth = contents.pending_throne_select_depth;
-    pending_last_selected_original_index = contents.pending_last_selected_original_index;
     obs_state = std::make_unique<ObservationState>(hand_counts_, deck_, discard_counts_);
   }
 
@@ -227,12 +190,6 @@ struct PlayerState {
     contents.discard_counts = discard_counts_;
     // history_ not included in JSON struct.
     contents.pending_choice = static_cast<int>(pending_choice);
-    contents.pending_discard_count = pending_discard_count;
-    contents.pending_draw_equals_discard = pending_draw_equals_discard;
-    contents.pending_gain_max_cost = pending_gain_max_cost;
-    contents.pending_target_hand_size = pending_target_hand_size;
-    contents.pending_throne_select_depth = pending_throne_select_depth;
-    contents.pending_last_selected_original_index = pending_last_selected_original_index;
     auto ss = std::make_unique<DominionPlayerStateStruct>();
     static_cast<DominionPlayerStructContents&>(*ss) = contents;
     return ss;
@@ -243,18 +200,11 @@ struct PlayerState {
   // Initialize discard selection metadata for ascending-order subset selection.
   void InitDiscardSelection(bool draw_equals_discard) {
     pending_choice = PendingChoice::SelectUpToCardsFromHand;
-    pending_discard_count = 0;
-    pending_draw_equals_discard = draw_equals_discard;
-    pending_last_selected_original_index = -1;
   }
 
   // Clear discard selection metadata after finishing the effect.
   void ClearDiscardSelection() {
-    pending_discard_count = 0;
-    pending_draw_equals_discard = false;
-    pending_last_selected_original_index = -1;
-    pending_target_hand_size = 0;
-    pending_throne_select_depth = 0;
+    // Node-owned state handles metadata; PlayerState only tracks choice.
   }
 
 };
