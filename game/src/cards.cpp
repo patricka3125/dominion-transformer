@@ -92,12 +92,12 @@ bool Card::RemodelTrashFromHand(DominionState& st, int pl, Action action_id) {
     int cap = selected.cost_ + 2;
     p.hand_counts_[j] -= 1;
     p.pending_last_selected_original_index = j;
-    // Switch to board gain stage.
-    auto next = std::unique_ptr<EffectNode>(new SelectUpToCardsFromBoardNode(cap));
-    st.player_states_[pl].effect_head->next = std::move(next);
-    st.player_states_[pl].effect_head = std::move(st.player_states_[pl].effect_head->next);
-    st.player_states_[pl].effect_head->onEnter(st, pl);
-    st.player_states_[pl].effect_head->on_action = GainFromBoardHandler;
+    // Switch to board gain stage: replace current front effect with gain-from-board.
+    if (!st.player_states_[pl].effect_queue.empty()) {
+      st.player_states_[pl].effect_queue.front() = std::unique_ptr<EffectNode>(new SelectUpToCardsFromBoardNode(cap));
+      st.player_states_[pl].effect_queue.front()->onEnter(st, pl);
+      st.player_states_[pl].effect_queue.front()->on_action = GainFromBoardHandler;
+    }
     return true;
   }
   return false;
@@ -190,9 +190,9 @@ bool Card::ThroneRoomSelectActionHandler(DominionState& st, int pl, Action actio
     SPIEL_CHECK_TRUE(p.pending_last_selected_original_index < 0 || j >= p.pending_last_selected_original_index);
     CardName cn = static_cast<CardName>(j);
     const Card& spec = GetCardSpec(cn);
-    // Must be an action card.
+    // Must be an action card; ignore non-action selections.
     if (std::find(spec.types_.begin(), spec.types_.end(), CardType::ACTION) == spec.types_.end()) {
-      return true; // ignore non-action selection
+      return true;
     }
     // First play: move to play area, do standard grants, no action decrement here.
     p.hand_counts_[j] -= 1;
@@ -200,23 +200,33 @@ bool Card::ThroneRoomSelectActionHandler(DominionState& st, int pl, Action actio
     spec.play(st, pl);
     // If the selected card is another Throne Room, chain a new selection node for choosing an action.
     if (cn == CardName::CARD_ThroneRoom) {
-      auto next = std::unique_ptr<EffectNode>(new SelectUpToCardsNode(false));
-      p.pending_select_only_action = true;
-      st.player_states_[pl].effect_head->next = std::move(next);
-      st.player_states_[pl].effect_head = std::move(st.player_states_[pl].effect_head->next);
-      st.player_states_[pl].effect_head->onEnter(st, pl);
-      st.player_states_[pl].effect_head->on_action = ThroneRoomSelectActionHandler;
-      // Mark to schedule a second play for this Throne once its first replay executes.
-      p.pending_throne_schedule_second_for = cn;
+      p.pending_throne_select_depth += 1;
+      if (!st.player_states_[pl].effect_queue.empty()) {
+        st.player_states_[pl].effect_queue.front() = std::unique_ptr<EffectNode>(new SelectUpToCardsNode(false));
+        st.player_states_[pl].effect_queue.front()->onEnter(st, pl);
+        st.player_states_[pl].effect_queue.front()->on_action = ThroneRoomSelectActionHandler;
+      }
     } else {
-      // Otherwise, apply the card's own effect normally.
+      // Otherwise, apply the card's own effect twice (Throne effect) and decrement depth once.
       spec.applyEffect(st, pl);
+      spec.play(st, pl);
+      spec.applyEffect(st, pl);
+      if (p.pending_throne_select_depth > 0) {
+        p.pending_throne_select_depth -= 1;
+      }
+      if (p.pending_throne_select_depth == 0) {
+        // End Throne Room selection effect when depth satisfied.
+        p.ClearDiscardSelection();
+        p.pending_choice = PendingChoice::None;
+      } else {
+        // Continue selection; keep choosing actions.
+        if (!st.player_states_[pl].effect_queue.empty()) {
+          st.player_states_[pl].effect_queue.front() = std::unique_ptr<EffectNode>(new SelectUpToCardsNode(false));
+          st.player_states_[pl].effect_queue.front()->onEnter(st, pl);
+          st.player_states_[pl].effect_queue.front()->on_action = ThroneRoomSelectActionHandler;
+        }
+      }
     }
-    // Schedule second play (replay) once the current effect chain finishes.
-    p.pending_throne_replay_stack.push_back(cn);
-    // End Throne Room selection effect.
-    p.ClearDiscardSelection();
-    p.pending_choice = PendingChoice::None;
     return true;
   }
   return false;
@@ -276,40 +286,44 @@ void Card::play(DominionState& state, int player) const {
 void Card::applyEffect(DominionState& state, int player) const {
   if (kind_ == CardName::CARD_Cellar) {
     auto& ps = state.player_states_[player];
-    ps.effect_head = std::unique_ptr<EffectNode>(new SelectUpToCardsNode(true));
-    ps.effect_head->onEnter(state, player);
-
-    ps.effect_head->on_action = CellarHandSelectHandler;
+    ps.effect_queue.clear();
+    ps.effect_queue.push_back(std::unique_ptr<EffectNode>(new SelectUpToCardsNode(true)));
+    ps.effect_queue.front()->onEnter(state, player);
+    ps.effect_queue.front()->on_action = CellarHandSelectHandler;
   }
   if (kind_ == CardName::CARD_Workshop) {
     auto& ps = state.player_states_[player];
-    ps.effect_head = std::unique_ptr<EffectNode>(new SelectUpToCardsFromBoardNode(4));
-    ps.effect_head->onEnter(state, player);
+    ps.effect_queue.clear();
+    ps.effect_queue.push_back(std::unique_ptr<EffectNode>(new SelectUpToCardsFromBoardNode(4)));
+    ps.effect_queue.front()->onEnter(state, player);
     // Reuse shared handler for gain-from-board.
-    ps.effect_head->on_action = GainFromBoardHandler;
+    ps.effect_queue.front()->on_action = GainFromBoardHandler;
   }
   if (kind_ == CardName::CARD_Remodel) {
     auto& ps = state.player_states_[player];
     // First stage: choose exactly one card from hand to trash (remove from game).
-    ps.effect_head = std::unique_ptr<EffectNode>(new SelectUpToCardsNode(false));
-    ps.effect_head->onEnter(state, player);
-    ps.effect_head->on_action = RemodelTrashFromHand;
+    ps.effect_queue.clear();
+    ps.effect_queue.push_back(std::unique_ptr<EffectNode>(new SelectUpToCardsNode(false)));
+    ps.effect_queue.front()->onEnter(state, player);
+    ps.effect_queue.front()->on_action = RemodelTrashFromHand;
   }
   if (kind_ == CardName::CARD_Chapel) {
     auto& ps = state.player_states_[player];
-    ps.effect_head = std::unique_ptr<EffectNode>(new SelectUpToCardsNode(false));
-    ps.effect_head->onEnter(state, player);
-    ps.effect_head->on_action = ChapelHandTrashHandler;
+    ps.effect_queue.clear();
+    ps.effect_queue.push_back(std::unique_ptr<EffectNode>(new SelectUpToCardsNode(false)));
+    ps.effect_queue.front()->onEnter(state, player);
+    ps.effect_queue.front()->on_action = ChapelHandTrashHandler;
   }
   if (kind_ == CardName::CARD_Militia) {
     int opp = 1 - player;
     auto& p_opp = state.player_states_[opp];
     int opp_hand_sz = 0; for (int j=0;j<kNumSupplyPiles;++j) opp_hand_sz += p_opp.hand_counts_[j];
     if (opp_hand_sz > 3) {
-      p_opp.effect_head = std::unique_ptr<EffectNode>(new SelectUpToCardsNode(false));
-      p_opp.effect_head->onEnter(state, opp);
+      p_opp.effect_queue.clear();
+      p_opp.effect_queue.push_back(std::unique_ptr<EffectNode>(new SelectUpToCardsNode(false)));
+      p_opp.effect_queue.front()->onEnter(state, opp);
       p_opp.pending_target_hand_size = 3;
-      p_opp.effect_head->on_action = MilitiaOpponentDiscardHandler;
+      p_opp.effect_queue.front()->on_action = MilitiaOpponentDiscardHandler;
       state.current_player_ = opp;
     }
   }
@@ -318,10 +332,11 @@ void Card::applyEffect(DominionState& state, int player) const {
   }
   if (kind_ == CardName::CARD_ThroneRoom) {
     auto& ps = state.player_states_[player];
-    ps.effect_head = std::unique_ptr<EffectNode>(new SelectUpToCardsNode(false));
-    ps.pending_select_only_action = true;
-    ps.effect_head->onEnter(state, player);
-    ps.effect_head->on_action = ThroneRoomSelectActionHandler;
+    ps.effect_queue.clear();
+    ps.effect_queue.push_back(std::unique_ptr<EffectNode>(new SelectUpToCardsNode(false)));
+    ps.pending_throne_select_depth += 1;
+    ps.effect_queue.front()->onEnter(state, player);
+    ps.effect_queue.front()->on_action = ThroneRoomSelectActionHandler;
   }
 }
 
@@ -334,7 +349,7 @@ std::vector<Action> PendingEffectLegalActions(const DominionState& state, int pl
       if (ps.hand_counts_[j] <= 0) continue;
       SPIEL_CHECK_TRUE(j >= 0 && j < kNumSupplyPiles);
       if (ps.pending_last_selected_original_index >= 0 && j < ps.pending_last_selected_original_index) continue;
-      if (!ps.pending_select_only_action) {
+      if (ps.pending_throne_select_depth <= 0) {
         actions.push_back(ActionIds::HandSelect(j));
       } else {
         const Card& spec = GetCardSpec(static_cast<CardName>(j));

@@ -358,17 +358,6 @@ std::string DominionState::ObservationString(int player) const {
         s += ", ";
       const Action a = las[i];
       std::string a_str = FormatActionPair(*this, a);
-      if (a < ActionIds::MaxHandSize()) {
-        int idx = static_cast<int>(a);
-        if (idx >= 0 && idx < kNumSupplyPiles) {
-          a_str += " (" + card_name(static_cast<CardName>(idx)) + ")";
-        }
-      } else if (a >= ActionIds::BuyBase() && a < ActionIds::BuyBase() + kNumSupplyPiles) {
-        int j = static_cast<int>(a) - ActionIds::BuyBase();
-        if (j >= 0 && j < kNumSupplyPiles) {
-          a_str += " (" + card_name(static_cast<CardName>(j)) + ")";
-        }
-      }
       s += a_str;
     }
   }
@@ -481,45 +470,16 @@ void DominionState::DoApplyAction(Action action_id) {
     return;
   }
   auto &ps = player_states_[current_player_];
-  // If there is a pending effect node and it provides an action handler,
-  // delegate to it first.
-  if (ps.effect_head && ps.pending_choice != PendingChoice::None &&
-      ps.effect_head->on_action) {
+  // If there is a pending effect at the front of the queue and it provides an
+  // action handler, delegate to it first.
+  if (!ps.effect_queue.empty() && ps.pending_choice != PendingChoice::None &&
+      ps.effect_queue.front() && ps.effect_queue.front()->on_action) {
     bool consumed =
-        ps.effect_head->on_action(*this, current_player_, action_id);
+        ps.effect_queue.front()->on_action(*this, current_player_, action_id);
     if (consumed) {
-      if (ps.pending_choice == PendingChoice::None && ps.effect_head) {
-        ps.effect_head = std::move(ps.effect_head->next);
+      if (ps.pending_choice == PendingChoice::None && !ps.effect_queue.empty()) {
+        ps.effect_queue.pop_front();
       }
-
-      // After advancing the effect chain, process any pending Throne Room
-      // replays.
-      while (ps.pending_choice == PendingChoice::None && !ps.effect_head &&
-             !ps.pending_throne_replay_stack.empty()) {
-        CardName to_replay = ps.pending_throne_replay_stack.back();
-        ps.pending_throne_replay_stack.pop_back();
-        const Card &spec = GetCardSpec(to_replay);
-        // Throne Room replay: apply standard grants and the card effect,
-        // without removing from hand, moving to play area, or consuming an
-        // action.
-        spec.play(*this, current_player_);
-        spec.applyEffect(*this, current_player_);
-        // If this creates a pending effect (e.g., Throne Room selection), break
-        // to let it resolve.
-        if (ps.effect_head) {
-          // If we just replayed a Throne card and need to schedule its second
-          // play, do so now.
-          if (to_replay == CardName::CARD_ThroneRoom &&
-              ps.pending_throne_schedule_second_for.has_value() &&
-              ps.pending_throne_schedule_second_for.value() == to_replay) {
-            ps.pending_throne_replay_stack.push_back(to_replay);
-            ps.pending_throne_schedule_second_for.reset();
-          }
-          break;
-        }
-      }
-      // If we are in action phase and there is no longer any pending effect,
-      // auto-advance to buy phase when appropriate.
       MaybeAutoAdvanceToBuyPhase();
       return;
     }
@@ -617,7 +577,7 @@ void DominionState::MaybeAutoAdvanceToBuyPhase() {
   // resolving an effect/choice.
   auto &ps = player_states_[current_player_];
   if (phase_ != Phase::actionPhase) return;
-  if (ps.effect_head || ps.pending_choice != PendingChoice::None) return;
+  if (!ps.effect_queue.empty() || ps.pending_choice != PendingChoice::None) return;
 
   // If the player has zero actions, or has no action cards in hand, switch.
   if (actions_ <= 0) {

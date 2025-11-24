@@ -7,6 +7,7 @@
 #include <random>
 #include <string>
 #include <vector>
+#include <deque>
 
 #include "cards.hpp"
 
@@ -81,17 +82,12 @@ struct DominionPlayerStructContents {
   bool pending_draw_equals_discard;
   int pending_gain_max_cost;
   int pending_target_hand_size;
-  bool pending_select_only_action;
-  std::vector<int> pending_throne_replay_stack;
-  int pending_throne_schedule_second_for_present;
-  int pending_throne_schedule_second_for_value;
+  int pending_throne_select_depth;
   int pending_last_selected_original_index;
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(
       DominionPlayerStructContents, deck, hand_counts, discard_counts,
       pending_choice, pending_discard_count, pending_draw_equals_discard,
-      pending_gain_max_cost, pending_target_hand_size, pending_select_only_action,
-      pending_throne_replay_stack, pending_throne_schedule_second_for_present,
-      pending_throne_schedule_second_for_value,
+      pending_gain_max_cost, pending_target_hand_size, pending_throne_select_depth,
       pending_last_selected_original_index)
 };
 
@@ -151,18 +147,12 @@ struct PlayerState {
   int pending_gain_max_cost = 0;
   int pending_target_hand_size =
       0; // if > 0, force discard until reaching this hand size
-  bool pending_select_only_action =
-      false; // if true, only action cards are valid selections
-  std::vector<CardName> pending_throne_replay_stack; // LIFO stack of cards to
-                                                     // replay (play+effect)
-  std::optional<CardName>
-      pending_throne_schedule_second_for; // when set for a Throne card,
-                                          // schedule one more replay
+  int pending_throne_select_depth = 0; // nested Throne selection depth counter
   // Stable-index selection support for ascending-order constraint during
   // discard effects. Maps current hand indices to original indices at effect
   // start; updated on selection.
   int pending_last_selected_original_index = -1; // last selected enumerator id
-  std::unique_ptr<EffectNode> effect_head; // head of pending effect linked list
+  std::deque<std::unique_ptr<EffectNode>> effect_queue; // FIFO of pending effects
   std::unique_ptr<ObservationState> obs_state; // per-player observation state
 
   PlayerState() = default;
@@ -176,11 +166,18 @@ struct PlayerState {
         pending_draw_equals_discard(other.pending_draw_equals_discard),
         pending_gain_max_cost(other.pending_gain_max_cost),
         pending_target_hand_size(other.pending_target_hand_size),
-        pending_select_only_action(other.pending_select_only_action),
-        pending_throne_replay_stack(other.pending_throne_replay_stack),
-        pending_throne_schedule_second_for(other.pending_throne_schedule_second_for),
+        pending_throne_select_depth(other.pending_throne_select_depth),
         pending_last_selected_original_index(other.pending_last_selected_original_index) {
-    effect_head = other.effect_head ? other.effect_head->clone() : nullptr;
+    effect_queue.clear();
+    for (const auto &node_ptr : other.effect_queue) {
+      if (node_ptr) {
+        auto cloned = node_ptr->clone();
+        cloned->on_action = node_ptr->on_action;
+        effect_queue.push_back(std::move(cloned));
+      } else {
+        effect_queue.push_back(nullptr);
+      }
+    }
     obs_state = std::make_unique<ObservationState>(hand_counts_, deck_, discard_counts_);
   }
   // Construct from json contents.
@@ -199,11 +196,9 @@ struct PlayerState {
     pending_draw_equals_discard = false;
     pending_gain_max_cost = 0;
     pending_target_hand_size = 0;
-    pending_select_only_action = false;
-    pending_throne_replay_stack.clear();
-    pending_throne_schedule_second_for.reset();
+    pending_throne_select_depth = 0;
     pending_last_selected_original_index = -1;
-    effect_head.reset();
+    effect_queue.clear();
     // Parse structured player contents.
     DominionPlayerStructContents contents = json.get<DominionPlayerStructContents>();
     deck_.reserve(contents.deck.size());
@@ -216,14 +211,7 @@ struct PlayerState {
     pending_draw_equals_discard = contents.pending_draw_equals_discard;
     pending_gain_max_cost = contents.pending_gain_max_cost;
     pending_target_hand_size = contents.pending_target_hand_size;
-    pending_select_only_action = contents.pending_select_only_action;
-    pending_throne_replay_stack.clear();
-    for (int c : contents.pending_throne_replay_stack)
-      pending_throne_replay_stack.push_back(static_cast<CardName>(c));
-    if (contents.pending_throne_schedule_second_for_present) {
-      pending_throne_schedule_second_for =
-          static_cast<CardName>(contents.pending_throne_schedule_second_for_value);
-    }
+    pending_throne_select_depth = contents.pending_throne_select_depth;
     pending_last_selected_original_index = contents.pending_last_selected_original_index;
     obs_state = std::make_unique<ObservationState>(hand_counts_, deck_, discard_counts_);
   }
@@ -242,12 +230,7 @@ struct PlayerState {
     contents.pending_draw_equals_discard = pending_draw_equals_discard;
     contents.pending_gain_max_cost = pending_gain_max_cost;
     contents.pending_target_hand_size = pending_target_hand_size;
-    contents.pending_select_only_action = pending_select_only_action;
-    contents.pending_throne_replay_stack.clear();
-    for (auto cn : pending_throne_replay_stack)
-      contents.pending_throne_replay_stack.push_back(static_cast<int>(cn));
-    contents.pending_throne_schedule_second_for_present = pending_throne_schedule_second_for.has_value();
-    contents.pending_throne_schedule_second_for_value = pending_throne_schedule_second_for.has_value() ? static_cast<int>(pending_throne_schedule_second_for.value()) : -1;
+    contents.pending_throne_select_depth = pending_throne_select_depth;
     contents.pending_last_selected_original_index = pending_last_selected_original_index;
     auto ss = std::make_unique<DominionPlayerStateStruct>();
     static_cast<DominionPlayerStructContents&>(*ss) = contents;
@@ -270,7 +253,7 @@ struct PlayerState {
     pending_draw_equals_discard = false;
     pending_last_selected_original_index = -1;
     pending_target_hand_size = 0;
-    pending_select_only_action = false;
+    pending_throne_select_depth = 0;
   }
 
   // Generic helpers for select-up-to effects.

@@ -14,16 +14,14 @@ namespace dominion {
 
 class DominionState;
 
-// Effect processing nodes: a lightweight linked-list of pending effects
-// attached to a player. Each node may set up player state and, if needed,
-// enqueue a follow-up node via its `next` pointer.
+// Effect processing nodes: lightweight units representing pending effects.
+// Nodes are managed by the player's effect queue (FIFO).
 class EffectNode {
 public:
   virtual ~EffectNode() = default;
   // Called when the effect is appended to a player; responsible for
   // initializing any player-level pending choice state.
   virtual void onEnter(DominionState& state, int player) {}
-  std::unique_ptr<EffectNode> next;
   // Polymorphic deep copy of the effect chain.
   virtual std::unique_ptr<EffectNode> clone() const = 0;
   // Optional callback that handles actions while this effect is pending.
@@ -40,7 +38,6 @@ public:
   void onEnter(DominionState& state, int player) override;
   std::unique_ptr<EffectNode> clone() const override {
     auto n = std::unique_ptr<SelectUpToCardsNode>(new SelectUpToCardsNode(draw_equals_discard_));
-    if (next) n->next = next->clone();
     n->on_action = on_action;
     return std::unique_ptr<EffectNode>(std::move(n));
   }
@@ -58,7 +55,6 @@ public:
   void onEnter(DominionState& state, int player) override;
   std::unique_ptr<EffectNode> clone() const override {
     auto n = std::unique_ptr<SelectUpToCardsFromBoardNode>(new SelectUpToCardsFromBoardNode(max_cost_));
-    if (next) n->next = next->clone();
     n->on_action = on_action;
     return std::unique_ptr<EffectNode>(std::move(n));
   }
