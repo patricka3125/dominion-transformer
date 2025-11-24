@@ -230,6 +230,18 @@ public:
   // Draw n cards for player, shuffling discard into deck when needed.
   void DrawCardsFor(int player, int n);
 
+  Player current_player_ = 0;
+  int coins_ = 0;
+  int turn_number_ = 1;
+  int actions_ = 1;
+  int buys_ = 1;
+  Phase phase_ = Phase::actionPhase;
+  int last_player_to_go_ = -1;
+  std::array<int, kNumSupplyPiles> supply_piles_{}; // counts per supply pile (indexed by CardName)
+  std::array<int, kNumSupplyPiles> initial_supply_piles_{}; // initial counts for terminal checks, represents the kingdom.
+  std::vector<CardName> play_area_{};
+  std::array<PlayerState, kNumPlayers> player_states_{};
+
 protected:
   // Applies the given action_id for the current player.
   // - Delegates effect-specific resolution first (e.g., discard selection).
@@ -243,30 +255,13 @@ protected:
   // run when there is no pending effect/choice, to avoid skipping required
   // selections.
   void MaybeAutoAdvanceToBuyPhase();
-
-private:
-  Player current_player_ = 0;
-  int coins_ = 0;
-  int turn_number_ = 1;
-  int actions_ = 1;
-  int buys_ = 1;
-  Phase phase_ = Phase::actionPhase;
-  int last_player_to_go_ = -1;
-  // Sampled stochastic shuffle state.
+  private:
+  // Sampled stochastic shuffle state (internal-only).
   bool shuffle_pending_ = false;
   bool shuffle_pending_end_of_turn_ = false;
   int original_player_for_shuffle_ = -1;
   int pending_draw_count_after_shuffle_ = 0;
 
-  std::array<int, kNumSupplyPiles> supply_piles_{}; // counts per supply pile (indexed by CardName)
-  std::array<int, kNumSupplyPiles> initial_supply_piles_{}; // initial counts for terminal checks, represents the kingdom.
-  std::vector<CardName> play_area_{};
-  std::array<PlayerState, kNumPlayers> player_states_{};
-
-  friend class Card;
-  friend class EffectNode;
-  friend class SelectUpToCardsNode;
-  friend class SelectUpToCardsFromBoardNode;
   friend struct DominionTestHarness; // test-only accessor
   friend std::vector<Action>
   PendingEffectLegalActions(const DominionState &state, int player);

@@ -499,8 +499,7 @@ void DominionState::DoApplyAction(Action action_id) {
         play_area_.push_back(cn);
         ps.hand_counts_[j] -= 1;
         actions_ -= 1;
-        spec.play(*this, current_player_);
-        spec.applyEffect(*this, current_player_);
+        spec.Play(*this, current_player_);
       }
     }
   } else if (phase_ == Phase::buyPhase) {

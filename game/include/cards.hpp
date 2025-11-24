@@ -14,14 +14,9 @@ namespace dominion {
 
 class DominionState;
 
-// Effect processing nodes: lightweight units representing pending effects.
-// Nodes are managed by the player's effect queue (FIFO).
 class EffectNode {
 public:
   virtual ~EffectNode() = default;
-  // Called when the effect is appended to a player; responsible for
-  // initializing any player-level pending choice state.
-  virtual void onEnter(DominionState& state, int player) {}
   // Polymorphic deep copy of the effect chain.
   virtual std::unique_ptr<EffectNode> clone() const = 0;
   // Optional callback that handles actions while this effect is pending.
@@ -29,51 +24,36 @@ public:
   std::function<bool(DominionState&, int, Action)> on_action;
 };
 
-// Select up to any number of cards from hand. Optionally draw an equal
-// number after finishing the selection.
-class SelectUpToCardsNode : public EffectNode {
+class HandSelectionEffectNode : public EffectNode {
 public:
-  explicit SelectUpToCardsNode(bool draw_equals_discard)
-      : draw_equals_discard_(draw_equals_discard) {}
-  void onEnter(DominionState& state, int player) override;
   std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<SelectUpToCardsNode>(new SelectUpToCardsNode(draw_equals_discard_));
+    auto n = std::unique_ptr<HandSelectionEffectNode>(new HandSelectionEffectNode());
     n->target_hand_size_ = target_hand_size_;
     n->last_selected_original_index_ = last_selected_original_index_;
-    n->discard_count_ = discard_count_;
-    n->throne_select_depth_ = throne_select_depth_;
+    n->selection_count_ = selection_count_;
     n->on_action = on_action;
     return std::unique_ptr<EffectNode>(std::move(n));
   }
-  // Effect-local state accessors
   void set_target_hand_size(int v) { target_hand_size_ = v; }
   int target_hand_size() const { return target_hand_size_; }
   int last_selected_original_index() const { return last_selected_original_index_; }
   void set_last_selected_original_index(int j) { last_selected_original_index_ = j; }
-  int discard_count() const { return discard_count_; }
-  void increment_discard_count() { ++discard_count_; }
-  bool draw_equals_discard() const { return draw_equals_discard_; }
-  int throne_depth() const { return throne_select_depth_; }
-  void increment_throne_depth() { ++throne_select_depth_; }
-  void decrement_throne_depth() { if (throne_select_depth_ > 0) --throne_select_depth_; }
-private:
-  bool draw_equals_discard_ = false;
+  int selection_count() const { return selection_count_; }
+  void increment_selection_count() { ++selection_count_; }
+  void set_selection_count(int v) { selection_count_ = v; }
+  void reset_selection() { last_selected_original_index_ = -1; selection_count_ = 0; }
+protected:
   int target_hand_size_ = 0;
   int last_selected_original_index_ = -1;
-  int discard_count_ = 0;
-  int throne_select_depth_ = 0;
+  int selection_count_ = 0;
 };
 
-// Select from board (supply piles) up to a cost cap; puts the selected
-// card into the player's discard and decrements the supply. No extra
-// user input beyond the selection itself.
-class SelectUpToCardsFromBoardNode : public EffectNode {
+class GainFromBoardEffectNode : public EffectNode {
 public:
-  explicit SelectUpToCardsFromBoardNode(int max_cost)
+  explicit GainFromBoardEffectNode(int max_cost)
       : max_cost_(max_cost) {}
-  void onEnter(DominionState& state, int player) override;
   std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<SelectUpToCardsFromBoardNode>(new SelectUpToCardsFromBoardNode(max_cost_));
+    auto n = std::unique_ptr<GainFromBoardEffectNode>(new GainFromBoardEffectNode(max_cost_));
     n->on_action = on_action;
     return std::unique_ptr<EffectNode>(std::move(n));
   }
@@ -81,6 +61,74 @@ public:
 private:
   int max_cost_ = 0;
 };
+
+class CellarEffectNode : public HandSelectionEffectNode {
+public:
+  std::unique_ptr<EffectNode> clone() const override {
+    auto n = std::unique_ptr<CellarEffectNode>(new CellarEffectNode());
+    n->set_target_hand_size(this->target_hand_size());
+    n->set_last_selected_original_index(this->last_selected_original_index());
+    n->set_selection_count(this->selection_count());
+    n->on_action = on_action;
+    return std::unique_ptr<EffectNode>(std::move(n));
+  }
+};
+
+class ChapelEffectNode : public HandSelectionEffectNode {
+public:
+  std::unique_ptr<EffectNode> clone() const override {
+    auto n = std::unique_ptr<ChapelEffectNode>(new ChapelEffectNode());
+    n->set_target_hand_size(this->target_hand_size());
+    n->set_last_selected_original_index(this->last_selected_original_index());
+    n->set_selection_count(this->selection_count());
+    n->on_action = on_action;
+    return std::unique_ptr<EffectNode>(std::move(n));
+  }
+};
+
+class RemodelTrashEffectNode : public HandSelectionEffectNode {
+public:
+  std::unique_ptr<EffectNode> clone() const override {
+    auto n = std::unique_ptr<RemodelTrashEffectNode>(new RemodelTrashEffectNode());
+    n->set_target_hand_size(this->target_hand_size());
+    n->set_last_selected_original_index(this->last_selected_original_index());
+    n->set_selection_count(this->selection_count());
+    n->on_action = on_action;
+    return std::unique_ptr<EffectNode>(std::move(n));
+  }
+};
+
+class MilitiaEffectNode : public HandSelectionEffectNode {
+public:
+  std::unique_ptr<EffectNode> clone() const override {
+    auto n = std::unique_ptr<MilitiaEffectNode>(new MilitiaEffectNode());
+    n->set_target_hand_size(this->target_hand_size());
+    n->set_last_selected_original_index(this->last_selected_original_index());
+    n->set_selection_count(this->selection_count());
+    n->on_action = on_action;
+    return std::unique_ptr<EffectNode>(std::move(n));
+  }
+};
+
+class ThroneRoomEffectNode : public HandSelectionEffectNode {
+public:
+  std::unique_ptr<EffectNode> clone() const override {
+    auto n = std::unique_ptr<ThroneRoomEffectNode>(new ThroneRoomEffectNode());
+    n->set_target_hand_size(this->target_hand_size());
+    n->set_last_selected_original_index(this->last_selected_original_index());
+    n->set_selection_count(this->selection_count());
+    for (int i = 0; i < throne_select_depth_; ++i) n->increment_throne_depth();
+    n->on_action = on_action;
+    return std::unique_ptr<EffectNode>(std::move(n));
+  }
+  int throne_depth() const { return throne_select_depth_; }
+  void increment_throne_depth() { ++throne_select_depth_; }
+  void decrement_throne_depth() { if (throne_select_depth_ > 0) --throne_select_depth_; }
+private:
+  int throne_select_depth_ = 0;
+};
+
+// Selection initialization helpers are provided as Card static methods.
 
 enum class CardName {
   // Basic supply cards
@@ -144,6 +192,7 @@ struct CardOptions {
 
 class Card {
 public:
+    virtual ~Card() = default;
     std::string name_;
     CardName kind_;
     std::vector<CardType> types_;
@@ -177,8 +226,10 @@ public:
 
     // Applies standard grants: +actions, +buys, +coins, +cards.
     void play(DominionState& state, int player) const;
-    // Triggers any effect chains; used for interactive effects like Cellar.
-    void applyEffect(DominionState& state, int player) const;
+    // Default effect hook: no-op. Derived cards override this for custom effects.
+    virtual void applyEffect(DominionState& state, int player) const;
+    // Unified play: apply standard grants, then card-specific effects.
+    void Play(DominionState& state, int player) const;
 
     // Helper handlers for effect chains.
     static bool GainFromBoardHandler(DominionState& state, int player, Action action_id);
@@ -188,6 +239,8 @@ public:
     static bool MilitiaOpponentDiscardHandler(DominionState& state, int player, Action action_id);
     static void WitchAttackGiveCurse(DominionState& state, int player);
     static bool ThroneRoomSelectActionHandler(DominionState& state, int player, Action action_id);
+    static void InitHandSelection(DominionState& state, int player, HandSelectionEffectNode* node);
+    static void InitBoardSelection(DominionState& state, int player);
 
     // Generic helper to collapse repeated hand-selection logic (ascending original index).
     // - allow_finish: whether HandSelectFinish is a legal action to end early
@@ -202,6 +255,49 @@ public:
         bool finish_on_target_hand_size,
         const std::function<void(DominionState&, int, int)>& on_select,
         const std::function<void(DominionState&, int)>& on_finish);
+};
+
+// Derived cards with custom effects
+class CellarCard : public Card {
+public:
+  using Card::Card;
+  void applyEffect(DominionState& state, int player) const override;
+};
+
+class WorkshopCard : public Card {
+public:
+  using Card::Card;
+  void applyEffect(DominionState& state, int player) const override;
+};
+
+class RemodelCard : public Card {
+public:
+  using Card::Card;
+  void applyEffect(DominionState& state, int player) const override;
+};
+
+class ChapelCard : public Card {
+public:
+  using Card::Card;
+  void applyEffect(DominionState& state, int player) const override;
+};
+
+class MilitiaCard : public Card {
+public:
+  using Card::Card;
+  void applyEffect(DominionState& state, int player) const override;
+};
+
+class WitchCard : public Card {
+public:
+  using Card::Card;
+  void applyEffect(DominionState& state, int player) const override;
+};
+
+class ThroneRoomCard : public Card {
+public:
+  using Card::Card;
+  void applyEffect(DominionState& state, int player) const override;
 };
 
 const Card& GetCardSpec(CardName name);
