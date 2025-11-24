@@ -148,6 +148,7 @@ struct PlayerState {
   int pending_target_hand_size =
       0; // if > 0, force discard until reaching this hand size
   int pending_throne_select_depth = 0; // nested Throne selection depth counter
+
   // Stable-index selection support for ascending-order constraint during
   // discard effects. Maps current hand indices to original indices at effect
   // start; updated on selection.
@@ -256,17 +257,6 @@ struct PlayerState {
     pending_throne_select_depth = 0;
   }
 
-  // Generic helpers for select-up-to effects.
-  void InitHandSelection(bool draw_equals_discard) {
-    InitDiscardSelection(draw_equals_discard);
-  }
-  void ClearHandSelection() { ClearDiscardSelection(); }
-
-  void InitBoardSelection(int max_cost) {
-    pending_choice = PendingChoice::SelectUpToCardsFromBoard;
-    pending_gain_max_cost = max_cost;
-  }
-  void ClearBoardSelection() { pending_gain_max_cost = 0; }
 };
 
 class DominionState : public State {

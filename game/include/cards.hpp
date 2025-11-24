@@ -38,11 +38,30 @@ public:
   void onEnter(DominionState& state, int player) override;
   std::unique_ptr<EffectNode> clone() const override {
     auto n = std::unique_ptr<SelectUpToCardsNode>(new SelectUpToCardsNode(draw_equals_discard_));
+    n->target_hand_size_ = target_hand_size_;
+    n->last_selected_original_index_ = last_selected_original_index_;
+    n->discard_count_ = discard_count_;
+    n->throne_select_depth_ = throne_select_depth_;
     n->on_action = on_action;
     return std::unique_ptr<EffectNode>(std::move(n));
   }
+  // Effect-local state accessors
+  void set_target_hand_size(int v) { target_hand_size_ = v; }
+  int target_hand_size() const { return target_hand_size_; }
+  int last_selected_original_index() const { return last_selected_original_index_; }
+  void set_last_selected_original_index(int j) { last_selected_original_index_ = j; }
+  int discard_count() const { return discard_count_; }
+  void increment_discard_count() { ++discard_count_; }
+  bool draw_equals_discard() const { return draw_equals_discard_; }
+  int throne_depth() const { return throne_select_depth_; }
+  void increment_throne_depth() { ++throne_select_depth_; }
+  void decrement_throne_depth() { if (throne_select_depth_ > 0) --throne_select_depth_; }
 private:
   bool draw_equals_discard_ = false;
+  int target_hand_size_ = 0;
+  int last_selected_original_index_ = -1;
+  int discard_count_ = 0;
+  int throne_select_depth_ = 0;
 };
 
 // Select from board (supply piles) up to a cost cap; puts the selected
@@ -58,6 +77,7 @@ public:
     n->on_action = on_action;
     return std::unique_ptr<EffectNode>(std::move(n));
   }
+  int max_cost() const { return max_cost_; }
 private:
   int max_cost_ = 0;
 };
