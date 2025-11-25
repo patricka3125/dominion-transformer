@@ -124,6 +124,14 @@ public:
   int throne_depth() const { return throne_select_depth_; }
   void increment_throne_depth() { ++throne_select_depth_; }
   void decrement_throne_depth() { if (throne_select_depth_ > 0) --throne_select_depth_; }
+  // Begin a new selection chain and attach the handler.
+  void BeginSelection(DominionState& state, int player);
+  // Increment depth and begin selection.
+  void StartChain(DominionState& state, int player);
+  // Decrement depth and either finish or continue selection.
+  void ContinueOrFinish(DominionState& state, int player);
+  // Finish current selection effect.
+  void FinishSelection(DominionState& state, int player);
 private:
   int throne_select_depth_ = 0;
 };
@@ -225,20 +233,13 @@ public:
     static Card fromOptions(const CardOptions& opt) { return Card(opt); }
 
     // Applies standard grants: +actions, +buys, +coins, +cards.
-    void play(DominionState& state, int player) const;
+    void applyGrants(DominionState& state, int player) const;
     // Default effect hook: no-op. Derived cards override this for custom effects.
     virtual void applyEffect(DominionState& state, int player) const;
     // Unified play: apply standard grants, then card-specific effects.
     void Play(DominionState& state, int player) const;
 
     // Helper handlers for effect chains.
-    static bool GainFromBoardHandler(DominionState& state, int player, Action action_id);
-    static bool RemodelTrashFromHand(DominionState& state, int player, Action action_id);
-    static bool CellarHandSelectHandler(DominionState& state, int player, Action action_id);
-    static bool ChapelHandTrashHandler(DominionState& state, int player, Action action_id);
-    static bool MilitiaOpponentDiscardHandler(DominionState& state, int player, Action action_id);
-    static void WitchAttackGiveCurse(DominionState& state, int player);
-    static bool ThroneRoomSelectActionHandler(DominionState& state, int player, Action action_id);
     static void InitHandSelection(DominionState& state, int player, HandSelectionEffectNode* node);
     static void InitBoardSelection(DominionState& state, int player);
 
@@ -255,6 +256,7 @@ public:
         bool finish_on_target_hand_size,
         const std::function<void(DominionState&, int, int)>& on_select,
         const std::function<void(DominionState&, int)>& on_finish);
+    static bool GainFromBoardHandler(DominionState& state, int player, Action action_id);
 };
 
 // Derived cards with custom effects
@@ -262,6 +264,7 @@ class CellarCard : public Card {
 public:
   using Card::Card;
   void applyEffect(DominionState& state, int player) const override;
+  static bool CellarHandSelectHandler(DominionState& state, int player, Action action_id);
 };
 
 class WorkshopCard : public Card {
@@ -274,30 +277,35 @@ class RemodelCard : public Card {
 public:
   using Card::Card;
   void applyEffect(DominionState& state, int player) const override;
+  static bool RemodelTrashFromHand(DominionState& state, int player, Action action_id);
 };
 
 class ChapelCard : public Card {
 public:
   using Card::Card;
   void applyEffect(DominionState& state, int player) const override;
+  static bool ChapelHandTrashHandler(DominionState& state, int player, Action action_id);
 };
 
 class MilitiaCard : public Card {
 public:
   using Card::Card;
   void applyEffect(DominionState& state, int player) const override;
+  static bool MilitiaOpponentDiscardHandler(DominionState& state, int player, Action action_id);
 };
 
 class WitchCard : public Card {
 public:
   using Card::Card;
   void applyEffect(DominionState& state, int player) const override;
+  static void WitchAttackGiveCurse(DominionState& state, int player);
 };
 
 class ThroneRoomCard : public Card {
 public:
   using Card::Card;
   void applyEffect(DominionState& state, int player) const override;
+  static bool ThroneRoomSelectActionHandler(DominionState& state, int player, Action action_id);
 };
 
 const Card& GetCardSpec(CardName name);

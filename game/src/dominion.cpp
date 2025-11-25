@@ -516,7 +516,7 @@ void DominionState::DoApplyAction(Action action_id) {
       if (HasType(spec, CardType::BASIC_TREASURE) || HasType(spec, CardType::SPECIAL_TREASURE)) {
         play_area_.push_back(cn);
         ps.hand_counts_[j] -= 1;
-        spec.play(*this, current_player_);
+        spec.applyGrants(*this, current_player_);
       }
       return;
     }

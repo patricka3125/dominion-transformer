@@ -41,7 +41,7 @@ namespace ActionIds {
   inline Action GainSelect(int j) { return static_cast<Action>(GainSelectBase() + j); }
 
   // Chance outcome used in sampled stochastic mode for deck shuffling.
-  inline Action Shuffle() { return static_cast<Action>(10000); }
+  inline Action Shuffle() { return GainSelectBase() + kNumSupplyPiles; }
 }
 
 // Human-readable names for action IDs. The caller provides the supply size

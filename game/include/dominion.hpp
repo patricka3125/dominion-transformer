@@ -197,10 +197,6 @@ struct PlayerState {
   // No copy-assignment: deep copy supported via copy constructor; assignment is
   // intentionally omitted.
 
-  // Initialize discard selection metadata for ascending-order subset selection.
-  void InitDiscardSelection(bool draw_equals_discard) {
-    pending_choice = PendingChoice::SelectUpToCardsFromHand;
-  }
 
   // Clear discard selection metadata after finishing the effect.
   void ClearDiscardSelection() {

@@ -572,6 +572,39 @@ static void TestThroneRoomNoActionsShowsNoHandSelect() {
   SPIEL_CHECK_FALSE(any_select);
 }
 
+// Verify that Throne Room chain selection does not enforce ascending
+// last_selected_original_index ordering: after selecting a Throne Room,
+// an ACTION card with a lower enumerator index (e.g., Smithy) remains selectable.
+static void TestThroneRoomIgnoresAscendingConstraint() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  // Hand: ThroneRoom (A), ThroneRoom (B), Smithy. Smithy has a lower index
+  // than ThroneRoom in CardName ordering.
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_ThroneRoom);
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_ThroneRoom);
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Smithy);
+  DominionTestHarness::SetPhase(ds, Phase::actionPhase);
+
+  // Play ThroneRoom (A) to start the chain.
+  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_ThroneRoom)));
+
+  // First selection: pick ThroneRoom (B).
+  {
+    int idx = DominionTestHarness::FindHandIndexOf(ds, 0, CardName::CARD_ThroneRoom);
+    SPIEL_CHECK_TRUE(idx != -1);
+    ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(idx));
+  }
+
+  // Now depth > 0: Smithy should still be selectable even if its index is lower.
+  auto actions = ds->LegalActions();
+  bool can_select_smithy = std::find(actions.begin(), actions.end(),
+      open_spiel::dominion::ActionIds::HandSelect(static_cast<int>(CardName::CARD_Smithy))) != actions.end();
+  SPIEL_CHECK_TRUE(can_select_smithy);
+}
+
 int main() {
   TestMarket();
   TestVillage();
@@ -593,5 +626,6 @@ int main() {
   TestThroneRoomIntoThroneRoomTwoActionsTwice();
   TestThroneRoomAllowsNoSelection();
   TestThroneRoomNoActionsShowsNoHandSelect();
+  TestThroneRoomIgnoresAscendingConstraint();
   return 0;
 }
