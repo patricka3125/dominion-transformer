@@ -12,6 +12,9 @@
 namespace open_spiel {
 namespace dominion {
 
+// Forward declaration to avoid circular include: defined in dominion.hpp
+enum class PendingChoice : int;
+
 class DominionState;
 
 class EffectNode {
@@ -240,7 +243,7 @@ public:
     void Play(DominionState& state, int player) const;
 
     // Helper handlers for effect chains.
-    static void InitHandSelection(DominionState& state, int player, HandSelectionEffectNode* node);
+    static void InitHandSelection(DominionState& state, int player, HandSelectionEffectNode* node, PendingChoice choice);
     static void InitBoardSelection(DominionState& state, int player);
 
     // Generic helper to collapse repeated hand-selection logic (ascending original index).
@@ -254,6 +257,8 @@ public:
         bool allow_finish,
         int max_select_count,
         bool finish_on_target_hand_size,
+        int select_base,
+        Action select_finish,
         const std::function<void(DominionState&, int, int)>& on_select,
         const std::function<void(DominionState&, int)>& on_finish);
     static bool GainFromBoardHandler(DominionState& state, int player, Action action_id);

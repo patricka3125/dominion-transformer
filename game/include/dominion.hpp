@@ -36,10 +36,13 @@ enum class Phase {
   buyPhase,
 };
 
-// Generic pending effect choice types.
-enum class PendingChoice {
+// Pending effect choice types, split by hand-selection semantics.
+enum class PendingChoice : int {
   None,
-  SelectUpToCardsFromHand,
+  DiscardUpToCardsFromHand,
+  TrashUpToCardsFromHand,
+  SelectActionFromHand,
+  PlayActionFromHand,
   SelectUpToCardsFromBoard,
 };
 

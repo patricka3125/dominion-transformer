@@ -12,10 +12,16 @@ std::string ActionNames::Name(Action action_id, int num_supply_piles) {
     return std::string("PlayHandIndex_") + std::to_string(action_id);
   }
   
-  if (action_id >= HandSelectBase() && action_id < HandSelectBase() + MaxHandSize()) {
-    return std::string("HandSelect_") + std::to_string(action_id - HandSelectBase());
+  if (action_id >= DiscardHandBase() && action_id < DiscardHandBase() + MaxHandSize()) {
+    return std::string("DiscardHandSelect_") + std::to_string(action_id - DiscardHandBase());
   }
-  if (action_id == HandSelectFinish()) return "HandSelectFinish";
+  if (action_id == DiscardHandSelectFinish()) return "DiscardHandSelectFinish";
+
+  if (action_id >= TrashHandBase() && action_id < TrashHandBase() + MaxHandSize()) {
+    return std::string("TrashHandSelect_") + std::to_string(action_id - TrashHandBase());
+  }
+  if (action_id == TrashHandSelectFinish()) return "TrashHandSelectFinish";
+  if (action_id == ThroneHandSelectFinish()) return "ThroneHandSelectFinish";
   if (action_id == EndActions()) return "EndActions";
   if (action_id == EndBuy()) return "EndBuy";
 
