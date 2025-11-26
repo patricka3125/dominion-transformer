@@ -19,7 +19,7 @@ namespace open_spiel {
 namespace dominion {
 
 inline constexpr int kNumPlayers = 2;
-inline constexpr int kDominionMaxDistinctActions = 256;
+inline constexpr int kDominionMaxDistinctActions = 4096; // buffer for future action additions
 inline constexpr int kNumCardTypes = 33; // total card enumerators
 inline constexpr int kNumSupplyPiles = kNumCardTypes; // supply indexed by CardName
 
@@ -38,12 +38,11 @@ enum class Phase {
 
 // Pending effect choice types, split by hand-selection semantics.
 enum class PendingChoice : int {
-  None,
-  DiscardUpToCardsFromHand,
-  TrashUpToCardsFromHand,
-  SelectActionFromHand,
-  PlayActionFromHand,
-  SelectUpToCardsFromBoard,
+  None = 0,
+  DiscardUpToCardsFromHand = 1,
+  TrashUpToCardsFromHand = 2,
+  PlayActionFromHand = 3,
+  SelectUpToCardsFromBoard = 4,
 };
 
 // ObservationState holds references to a player's containers for observation.
