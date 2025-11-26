@@ -7,9 +7,11 @@
 #include <random>
 #include <string>
 #include <vector>
+#include <deque>
 
 #include "cards.hpp"
 
+#include "open_spiel/json/include/nlohmann/json.hpp"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_globals.h"
 
@@ -17,7 +19,7 @@ namespace open_spiel {
 namespace dominion {
 
 inline constexpr int kNumPlayers = 2;
-inline constexpr int kDominionMaxDistinctActions = 256;
+inline constexpr int kDominionMaxDistinctActions = 4096; // buffer for future action additions
 inline constexpr int kNumCardTypes = 33; // total card enumerators
 inline constexpr int kNumSupplyPiles = kNumCardTypes; // supply indexed by CardName
 
@@ -34,11 +36,13 @@ enum class Phase {
   buyPhase,
 };
 
-// Generic pending effect choice types.
-enum class PendingChoice {
-  None,
-  SelectUpToCardsFromHand,
-  SelectUpToCardsFromBoard,
+// Pending effect choice types, split by hand-selection semantics.
+enum class PendingChoice : int {
+  None = 0,
+  DiscardUpToCardsFromHand = 1,
+  TrashUpToCardsFromHand = 2,
+  PlayActionFromHand = 3,
+  SelectUpToCardsFromBoard = 4,
 };
 
 // ObservationState holds references to a player's containers for observation.
@@ -46,13 +50,13 @@ enum class PendingChoice {
 struct ObservationState {
   std::array<int, kNumSupplyPiles> &player_hand_counts;
   std::vector<CardName> &player_deck;
-  std::vector<CardName> &player_discard;
+  std::array<int, kNumSupplyPiles> &player_discard_counts;
   std::map<CardName, int> opponent_known_counts; // combined known set of opponent's hand+deck+discard
 
   ObservationState(std::array<int, kNumSupplyPiles> &hand_counts,
                    std::vector<CardName> &deck,
-                   std::vector<CardName> &discard)
-      : player_hand_counts(hand_counts), player_deck(deck), player_discard(discard) {}
+                   std::array<int, kNumSupplyPiles> &discard_counts)
+      : player_hand_counts(hand_counts), player_deck(deck), player_discard_counts(discard_counts) {}
   ObservationState(const ObservationState &other) = default;
 
   std::map<CardName, int> KnownDeckCounts() const {
@@ -62,92 +66,151 @@ struct ObservationState {
   }
   std::map<CardName, int> KnownDiscardCounts() const {
     std::map<CardName, int> out;
-    for (auto cn : player_discard) out[cn] += 1;
+    for (int j = 0; j < kNumSupplyPiles; ++j) {
+      if (player_discard_counts[j] > 0) out[static_cast<CardName>(j)] = player_discard_counts[j];
+    }
     return out;
   }
 
 };
 
+// JSON-serializable contents used by StateStructs.
+struct DominionPlayerStructContents {
+  std::vector<int> deck;
+  std::array<int, kNumSupplyPiles> hand_counts;
+  std::array<int, kNumSupplyPiles> discard_counts;
+  int pending_choice;
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE(
+      DominionPlayerStructContents, deck, hand_counts, discard_counts,
+      pending_choice)
+};
+
+struct DominionStateStructContents {
+  int current_player;
+  int coins;
+  int turn_number;
+  int actions;
+  int buys;
+  int phase;
+  int last_player_to_go;
+  bool shuffle_pending;
+  bool shuffle_pending_end_of_turn;
+  int original_player_for_shuffle;
+  int pending_draw_count_after_shuffle;
+  std::array<int, kNumSupplyPiles> supply_piles;
+  std::array<int, kNumSupplyPiles> initial_supply_piles;
+  std::vector<int> play_area;
+  std::vector<DominionPlayerStructContents> player_states;
+  int move_number;
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE(
+      DominionStateStructContents, current_player, coins, turn_number, actions,
+      buys, phase, last_player_to_go, shuffle_pending,
+      shuffle_pending_end_of_turn, original_player_for_shuffle,
+      pending_draw_count_after_shuffle, supply_piles, initial_supply_piles,
+      play_area, player_states, move_number)
+};
+
+struct DominionPlayerStateStruct : public StateStruct,
+                                   public DominionPlayerStructContents {
+  DominionPlayerStateStruct() = default;
+  explicit DominionPlayerStateStruct(const std::string &json_str) {
+    nlohmann::json::parse(json_str).get_to(*this);
+  }
+  nlohmann::json to_json_base() const override { return *this; }
+};
+
+struct DominionStateStruct : public StateStruct,
+                              public DominionStateStructContents {
+  DominionStateStruct() = default;
+  explicit DominionStateStruct(const std::string &json_str) {
+    nlohmann::json::parse(json_str).get_to(*this);
+  }
+  nlohmann::json to_json_base() const override { return *this; }
+};
+
 struct PlayerState {
   std::vector<CardName> deck_;
   std::array<int, kNumSupplyPiles> hand_counts_{};
-  std::vector<CardName> discard_;
+  std::array<int, kNumSupplyPiles> discard_counts_{};
   std::vector<Action> history_;
   PendingChoice pending_choice = PendingChoice::None;
-  int pending_discard_count =
-      0; // tracks discards selected during a discard effect
-  bool pending_draw_equals_discard =
-      false; // whether finishing discard should draw equal to discards
-  int pending_gain_max_cost = 0;
-  int pending_target_hand_size =
-      0; // if > 0, force discard until reaching this hand size
-  bool pending_select_only_action =
-      false; // if true, only action cards are valid selections
-  std::vector<CardName> pending_throne_replay_stack; // LIFO stack of cards to
-                                                     // replay (play+effect)
-  std::optional<CardName>
-      pending_throne_schedule_second_for; // when set for a Throne card,
-                                          // schedule one more replay
-  // Stable-index selection support for ascending-order constraint during
-  // discard effects. Maps current hand indices to original indices at effect
-  // start; updated on selection.
-  int pending_last_selected_original_index = -1; // last selected enumerator id
-  std::unique_ptr<EffectNode> effect_head; // head of pending effect linked list
+  // Effect-specific state moved into nodes; PlayerState retains only choice
+  // type and the effect queue.
+  std::deque<std::unique_ptr<EffectNode>> effect_queue; // FIFO of pending effects
   std::unique_ptr<ObservationState> obs_state; // per-player observation state
 
   PlayerState() = default;
   PlayerState(const PlayerState &other)
-      : deck_(other.deck_), hand_counts_(other.hand_counts_), discard_(other.discard_),
-        history_(other.history_), pending_choice(other.pending_choice),
-        pending_discard_count(other.pending_discard_count),
-        pending_draw_equals_discard(other.pending_draw_equals_discard),
-        pending_gain_max_cost(other.pending_gain_max_cost),
-        pending_target_hand_size(other.pending_target_hand_size),
-        pending_last_selected_original_index(
-            other.pending_last_selected_original_index),
-        pending_select_only_action(other.pending_select_only_action),
-        pending_throne_replay_stack(other.pending_throne_replay_stack),
-        pending_throne_schedule_second_for(
-            other.pending_throne_schedule_second_for) {
-    effect_head = other.effect_head ? other.effect_head->clone() : nullptr;
-    obs_state = std::make_unique<ObservationState>(hand_counts_, deck_, discard_);
+      : deck_(other.deck_),
+        hand_counts_(other.hand_counts_),
+        discard_counts_(other.discard_counts_),
+        history_(other.history_),
+        pending_choice(other.pending_choice) {
+    effect_queue.clear();
+    for (const auto &node_ptr : other.effect_queue) {
+      if (node_ptr) {
+        auto cloned = node_ptr->clone();
+        cloned->on_action = node_ptr->on_action;
+        effect_queue.push_back(std::move(cloned));
+      } else {
+        effect_queue.push_back(nullptr);
+      }
+    }
+    obs_state = std::make_unique<ObservationState>(hand_counts_, deck_, discard_counts_);
+  }
+  // Construct from json contents.
+  explicit PlayerState(const nlohmann::json &json) {
+    LoadFromJson(json);
+  }
+
+  // Populate this player state from json contents in-place.
+  void LoadFromJson(const nlohmann::json &json) {
+    deck_.clear();
+    hand_counts_.fill(0);
+    discard_counts_.fill(0);
+    history_.clear();
+    pending_choice = PendingChoice::None;
+    effect_queue.clear();
+    // Parse structured player contents.
+    DominionPlayerStructContents contents = json.get<DominionPlayerStructContents>();
+    deck_.reserve(contents.deck.size());
+    for (int v : contents.deck) deck_.push_back(static_cast<CardName>(v));
+    hand_counts_ = contents.hand_counts;
+    discard_counts_ = contents.discard_counts;
+    // history_ is not serialized; leave empty on load.
+    pending_choice = static_cast<PendingChoice>(contents.pending_choice);
+    obs_state = std::make_unique<ObservationState>(hand_counts_, deck_, discard_counts_);
+  }
+
+  // JSON struct factory.
+  std::unique_ptr<StateStruct> ToStruct() const {
+    DominionPlayerStructContents contents;
+    contents.deck.clear();
+    contents.deck.reserve(deck_.size());
+    for (auto cn : deck_) contents.deck.push_back(static_cast<int>(cn));
+    contents.hand_counts = hand_counts_;
+    contents.discard_counts = discard_counts_;
+    // history_ not included in JSON struct.
+    contents.pending_choice = static_cast<int>(pending_choice);
+    auto ss = std::make_unique<DominionPlayerStateStruct>();
+    static_cast<DominionPlayerStructContents&>(*ss) = contents;
+    return ss;
   }
   // No copy-assignment: deep copy supported via copy constructor; assignment is
   // intentionally omitted.
 
-  // Initialize discard selection metadata for ascending-order subset selection.
-  void InitDiscardSelection(bool draw_equals_discard) {
-    pending_choice = PendingChoice::SelectUpToCardsFromHand;
-    pending_discard_count = 0;
-    pending_draw_equals_discard = draw_equals_discard;
-    pending_last_selected_original_index = -1;
-  }
 
   // Clear discard selection metadata after finishing the effect.
   void ClearDiscardSelection() {
-    pending_discard_count = 0;
-    pending_draw_equals_discard = false;
-    pending_last_selected_original_index = -1;
-    pending_target_hand_size = 0;
-    pending_select_only_action = false;
+    // Node-owned state handles metadata; PlayerState only tracks choice.
   }
 
-  // Generic helpers for select-up-to effects.
-  void InitHandSelection(bool draw_equals_discard) {
-    InitDiscardSelection(draw_equals_discard);
-  }
-  void ClearHandSelection() { ClearDiscardSelection(); }
-
-  void InitBoardSelection(int max_cost) {
-    pending_choice = PendingChoice::SelectUpToCardsFromBoard;
-    pending_gain_max_cost = max_cost;
-  }
-  void ClearBoardSelection() { pending_gain_max_cost = 0; }
 };
 
 class DominionState : public State {
 public:
   explicit DominionState(std::shared_ptr<const Game> game);
+  DominionState(std::shared_ptr<const Game> game, const nlohmann::json &json);
 
   Player CurrentPlayer() const override;
   std::vector<Action> LegalActions() const override;
@@ -158,9 +221,24 @@ public:
   bool IsTerminal() const override;
   std::vector<double> Returns() const override;
   std::unique_ptr<State> Clone() const override;
+  ActionsAndProbs ChanceOutcomes() const override;
+  std::unique_ptr<StateStruct> ToStruct() const override;
+  std::string Serialize() const override;
 
   // Draw n cards for player, shuffling discard into deck when needed.
   void DrawCardsFor(int player, int n);
+
+  Player current_player_ = 0;
+  int coins_ = 0;
+  int turn_number_ = 1;
+  int actions_ = 1;
+  int buys_ = 1;
+  Phase phase_ = Phase::actionPhase;
+  int last_player_to_go_ = -1;
+  std::array<int, kNumSupplyPiles> supply_piles_{}; // counts per supply pile (indexed by CardName)
+  std::array<int, kNumSupplyPiles> initial_supply_piles_{}; // initial counts for terminal checks, represents the kingdom.
+  std::vector<CardName> play_area_{};
+  std::array<PlayerState, kNumPlayers> player_states_{};
 
 protected:
   // Applies the given action_id for the current player.
@@ -170,24 +248,18 @@ protected:
   void DoApplyAction(Action action_id) override;
   void EndBuyCleanup();
 
-private:
-  Player current_player_ = 0;
-  int coins_ = 0;
-  int turn_number_ = 1;
-  int actions_ = 1;
-  int buys_ = 1;
-  Phase phase_ = Phase::actionPhase;
-  int last_player_to_go_ = -1;
+  // Automatically transition to buy phase when there are no playable action
+  // cards in hand or when the player has 0 actions remaining. This should only
+  // run when there is no pending effect/choice, to avoid skipping required
+  // selections.
+  void MaybeAutoAdvanceToBuyPhase();
+  private:
+  // Sampled stochastic shuffle state (internal-only).
+  bool shuffle_pending_ = false;
+  bool shuffle_pending_end_of_turn_ = false;
+  int original_player_for_shuffle_ = -1;
+  int pending_draw_count_after_shuffle_ = 0;
 
-  std::array<int, kNumSupplyPiles> supply_piles_{}; // counts per supply pile (indexed by CardName)
-  std::array<int, kNumSupplyPiles> initial_supply_piles_{}; // initial counts for terminal checks, represents the kingdom.
-  std::vector<CardName> play_area_{};
-  std::array<PlayerState, kNumPlayers> player_states_{};
-
-  friend class Card;
-  friend class EffectNode;
-  friend class SelectUpToCardsNode;
-  friend class SelectUpToCardsFromBoardNode;
   friend struct DominionTestHarness; // test-only accessor
   friend std::vector<Action>
   PendingEffectLegalActions(const DominionState &state, int player);
@@ -205,14 +277,12 @@ public:
   std::vector<int> InformationStateTensorShape() const override;
   std::vector<int> ObservationTensorShape() const override;
   int MaxGameLength() const override;
-  std::string GetRNGState() const override;
-  void SetRNGState(const std::string &rng_state) const override;
+  int MaxChanceOutcomes() const override;
+  std::unique_ptr<State> NewInitialState(const nlohmann::json &json) const override;
+  std::unique_ptr<State> DeserializeState(const std::string &str) const override;
 
-  std::mt19937 *rng() const { return &rng_; }
 
 private:
-  mutable int rng_seed_ = 0;
-  mutable std::mt19937 rng_{};
 };
 } // namespace dominion
 } // namespace open_spiel

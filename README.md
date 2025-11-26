@@ -14,14 +14,13 @@ Build and generate playthrough:
 bash -lc 'cmake --build /path/to/open_spiel/build -j 8 && source /path/to/open_spiel/venv/bin/activate && cd /path/to/open_spiel && open_spiel/scripts/generate_new_playthrough.sh dominion'
 ```
 
-## TODO (in order): 
-* Need to implement refining the data that is returned by Information and Observation state
-    * wip prompt: Hmm I think the scope is actually a bit too wide. Let's evaluate how tic tac toe defines TicTacToeStructContents, and how TicTacToeStateStruct and TicTacToeObservationStruct extens to this as well as its open_spiel parents (e.g. statestruct, observationstruct). 
-
-Dominion should have a similar structure, except that Dominion is an imperfect information game, so the observation struct should contain partial information of the state struct. 
-
-To keep the codebase organized, let's define all struct contents in a new file.
+## TODO (in order):
+* Represent cards and card effects as fixed feature embeddings + card effect embeddings.
+* Need to have json serializability for effect nodes in player effect queue.
+* Need to implement refining the data that is returned by Information and Observation state.
+* Design observation state with MLP NN architecture in mind.
 
 * Need to implement cycle decay when a player passes turn without doing anything (end action -> end buy). One idea is to maintain a global visited state set. If a player finishes a turn and the game state is the same as when it started, then a penalty should be added to their utility.
-    * (optional)Set  games that exceed 30 turns to terminal, or a sever utility punishment.
-* Need to implement supporting logic for chance nodes for kSampleStochasity
+    * A penalty should be added if an action is selected that is unnecessary. e.g. play 1 copper, buy a curse. (when they could've just bought the curse without playing the copper).
+    * (optional)Set games that exceed 30 turns to terminal, or a sever utility punishment.
+    * Idea to model the game to be deterministically stochastic. I think it is possible if we make the chance node expansion to C(deckSize, drawCount) and calculate probability for each.

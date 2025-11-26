@@ -32,7 +32,7 @@ struct DominionTestHarness {
   static int HandSize(DominionState* s, int player) { int c=0; for(int j=0;j<kNumSupplyPiles;++j) c+=s->player_states_[player].hand_counts_[j]; return c; }
   static int PlayAreaSize(DominionState* s) { return static_cast<int>(s->play_area_.size()); }
   static int DeckSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].deck_.size()); }
-  static int DiscardSize(DominionState* s, int player) { return static_cast<int>(s->player_states_[player].discard_.size()); }
+  static int DiscardSize(DominionState* s, int player) { int c=0; for(int j=0;j<kNumSupplyPiles;++j) c+=s->player_states_[player].discard_counts_[j]; return c; }
   static int SupplyCount(DominionState* s, int j) { return s->supply_piles_[j]; }
 };
 } }
@@ -151,9 +151,9 @@ static void TestCellar() {
 
   ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Cellar))); // play Cellar
 
-  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0)); // discard first card
-  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0)); // discard next first card
-  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelectFinish());     // finish, draw 2
+  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0)); // discard first card
+  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0)); // discard next first card
+  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelectFinish());     // finish, draw 2
 
   SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, 0), hand_before - 1);
   SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), actions_before);
@@ -174,7 +174,7 @@ static void TestCellarZeroDiscard() {
   int discard_before = DominionTestHarness::DiscardSize(ds, 0);
 
   ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Cellar))); // play Cellar
-  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelectFinish());             // finish without discards
+  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelectFinish());             // finish without discards
 
   SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, 0), hand_before - 1);
   SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), actions_before);
@@ -195,8 +195,8 @@ static void TestCellarActionStrings() {
   ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Cellar))); // play Cellar
 
   auto actions = ds->LegalActions();
-  bool has_finish = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::HandSelectFinish()) != actions.end();
-  bool has_select0 = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::HandSelect(0)) != actions.end();
+  bool has_finish = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::DiscardHandSelectFinish()) != actions.end();
+  bool has_select0 = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::DiscardHandSelect(0)) != actions.end();
   SPIEL_CHECK_TRUE(has_finish);
   SPIEL_CHECK_TRUE(has_select0);
 }
@@ -214,8 +214,8 @@ static void TestCellarOneDiscard() {
   int discard_before = DominionTestHarness::DiscardSize(ds, 0);
 
   ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Cellar))); // play Cellar
-  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0));         // discard one
-  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelectFinish());             // finish, draw one
+  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0));         // discard one
+  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelectFinish());             // finish, draw one
 
   SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, 0), hand_before - 1);
   SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), actions_before);
@@ -236,10 +236,10 @@ static void TestCellarThreeDiscards() {
   int discard_before = DominionTestHarness::DiscardSize(ds, 0);
 
   ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Cellar))); // play Cellar
-  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0));         // discard #1
-  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0));         // discard #2 (index shifts)
-  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0));         // discard #3
-  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelectFinish());             // finish, draw three
+  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0));         // discard #1
+  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0));         // discard #2 (index shifts)
+  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0));         // discard #3
+  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelectFinish());             // finish, draw three
 
   SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, 0), hand_before - 1);
   SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), actions_before);
@@ -255,10 +255,10 @@ static void TestDiscardFinishVisibility() {
   auto* ds = dynamic_cast<DominionState*>(state.get());
   SPIEL_CHECK_TRUE(ds != nullptr);
 
-  // Before playing any discard-effect card, HandSelectFinish must not be offered.
+  // Before playing any discard-effect card, DiscardHandSelectFinish must not be offered.
   {
     auto actions = ds->LegalActions();
-    bool has_finish = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::HandSelectFinish()) != actions.end();
+    bool has_finish = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::DiscardHandSelectFinish()) != actions.end();
     SPIEL_CHECK_FALSE(has_finish);
   }
 
@@ -268,11 +268,11 @@ static void TestDiscardFinishVisibility() {
   int hand_before = DominionTestHarness::HandSize(ds, 0);
   ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Cellar)));
 
-  // HandSelectFinish should now be present.
+  // DiscardHandSelectFinish should now be present.
   open_spiel::Action finish_id = -1;
   {
     auto actions = ds->LegalActions();
-    auto it = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::HandSelectFinish());
+    auto it = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::DiscardHandSelectFinish());
     if (it != actions.end()) finish_id = *it;
     SPIEL_CHECK_TRUE(finish_id != -1);
   }
@@ -281,7 +281,7 @@ static void TestDiscardFinishVisibility() {
   ds->ApplyAction(finish_id);
   {
     auto actions = ds->LegalActions();
-    bool has_finish = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::HandSelectFinish()) != actions.end();
+    bool has_finish = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::DiscardHandSelectFinish()) != actions.end();
     SPIEL_CHECK_FALSE(has_finish);
   }
 }
@@ -338,7 +338,7 @@ static void TestChapelTrashUpToFour() {
 
   // Trash four cards via successive hand selections.
   for (int k = 0; k < 4; ++k) {
-    ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0));
+    ds->ApplyAction(open_spiel::dominion::ActionIds::TrashHandSelect(0));
   }
 
   // After trashing 4, effect ends automatically and no cards were added to discard.
@@ -367,7 +367,7 @@ static void TestRemodelTrashThenGain() {
   ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Remodel)));
 
   // Trash the previously appended Estate (now last card in hand).
-  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(static_cast<int>(CardName::CARD_Estate)));
+  ds->ApplyAction(open_spiel::dominion::ActionIds::TrashHandSelect(static_cast<int>(CardName::CARD_Estate)));
 
   // Gain a Smithy (cost 4 <= 2 + 2) via board selection.
   open_spiel::Action gain_smithy = -1;
@@ -402,16 +402,16 @@ static void TestMilitiaOpponentDiscardsToThree() {
   SPIEL_CHECK_EQ(ds->CurrentPlayer(), 1);
   {
     auto la = ds->LegalActions();
-    bool has_finish = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::HandSelectFinish()) != la.end();
+    bool has_finish = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::DiscardHandSelectFinish()) != la.end();
     SPIEL_CHECK_FALSE(has_finish);
   }
-  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0));
+  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0));
   {
     auto la = ds->LegalActions();
-    bool has_finish = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::HandSelectFinish()) != la.end();
+    bool has_finish = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::DiscardHandSelectFinish()) != la.end();
     SPIEL_CHECK_FALSE(has_finish);
   }
-  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(0));
+  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0));
 
   // After discarding, turn should return to player 0.
   SPIEL_CHECK_EQ(ds->CurrentPlayer(), 0);
@@ -462,7 +462,7 @@ static void TestThroneRoomPlaysCardTwiceEffectOnlySecond() {
 
   // Select Smithy (now last index in hand after removing Throne Room).
   int hand_after_play = DominionTestHarness::HandSize(ds, 0);
-  ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(static_cast<int>(CardName::CARD_Smithy)));
+  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Smithy)));
 
   int deck_after = DominionTestHarness::DeckSize(ds, 0);
   int draws = deck_before - deck_after;
@@ -494,23 +494,23 @@ static void TestThroneRoomIntoThroneRoomTwoActionsTwice() {
 
   // Play Throne A (last index)
   ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_ThroneRoom)));
-  // Select Throne B: choose any HandSelect in legal actions (only actions are offered).
+  // Select Throne B: choose any PlayHandIndex in legal actions (only actions are offered).
   {
     int idx = DominionTestHarness::FindHandIndexOf(ds, 0, CardName::CARD_ThroneRoom);
     SPIEL_CHECK_TRUE(idx != -1);
-    ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(idx));
+    ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(idx));
   }
   // Throne B selection: choose Smithy A (now last index)
   {
     int idx = DominionTestHarness::FindHandIndexOf(ds, 0, CardName::CARD_Smithy);
     SPIEL_CHECK_TRUE(idx != -1);
-    ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(idx));
+    ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(idx));
   }
   // Throne B second play: choose Smithy B (now last index)
   {
     int idx = DominionTestHarness::FindHandIndexOf(ds, 0, CardName::CARD_Smithy);
     SPIEL_CHECK_TRUE(idx != -1);
-    ds->ApplyAction(open_spiel::dominion::ActionIds::HandSelect(idx));
+    ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(idx));
   }
   int deck_after_all = DominionTestHarness::DeckSize(ds, 0);
   int total_draws = deck_before - deck_after_all;
@@ -525,7 +525,7 @@ static void TestThroneRoomIntoThroneRoomTwoActionsTwice() {
     bool has_select = false;
     for (auto a : la) {
       std::string s = ds->ActionToString(ds->CurrentPlayer(), a);
-      if (s.find("HandSelect_") == 0) { has_select = true; break; }
+      if (s.find("PlayHandIndex_") == 0) { has_select = true; break; }
     }
     SPIEL_CHECK_FALSE(has_select);
   }
@@ -542,9 +542,9 @@ static void TestThroneRoomAllowsNoSelection() {
   DominionTestHarness::SetPhase(ds, Phase::actionPhase);
   int hb = DominionTestHarness::HandSize(ds, 0);
   ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_ThroneRoom)));
-  // During selection, HandSelectFinish should be legal.
+  // During selection, ThroneHandSelectFinish should be legal.
   auto la = ds->LegalActions();
-  bool has_finish = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::HandSelectFinish()) != la.end();
+  bool has_finish = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::ThroneHandSelectFinish()) != la.end();
   SPIEL_CHECK_TRUE(has_finish);
 }
 
@@ -563,13 +563,46 @@ static void TestThroneRoomNoActionsShowsNoHandSelect() {
   int hb = DominionTestHarness::HandSize(ds, 0);
   ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_ThroneRoom)));
   auto la = ds->LegalActions();
-  // No HandSelect(i) should be present (only finish).
+  // No PlayHandIndex(i) should be present (only finish).
   bool any_select = false;
   for (auto a : la) {
     std::string s = ds->ActionToString(ds->CurrentPlayer(), a);
-    if (s.find("HandSelect_") == 0) any_select = true;
+    if (s.find("PlayHandIndex_") == 0) any_select = true;
   }
   SPIEL_CHECK_FALSE(any_select);
+}
+
+// Verify that Throne Room chain selection does not enforce ascending
+// last_selected_original_index ordering: after selecting a Throne Room,
+// an ACTION card with a lower enumerator index (e.g., Smithy) remains selectable.
+static void TestThroneRoomIgnoresAscendingConstraint() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  // Hand: ThroneRoom (A), ThroneRoom (B), Smithy. Smithy has a lower index
+  // than ThroneRoom in CardName ordering.
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_ThroneRoom);
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_ThroneRoom);
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Smithy);
+  DominionTestHarness::SetPhase(ds, Phase::actionPhase);
+
+  // Play ThroneRoom (A) to start the chain.
+  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_ThroneRoom)));
+
+  // First selection: pick ThroneRoom (B).
+  {
+    int idx = DominionTestHarness::FindHandIndexOf(ds, 0, CardName::CARD_ThroneRoom);
+    SPIEL_CHECK_TRUE(idx != -1);
+    ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(idx));
+  }
+
+  // Now depth > 0: Smithy should still be selectable even if its index is lower.
+  auto actions = ds->LegalActions();
+  bool can_select_smithy = std::find(actions.begin(), actions.end(),
+      open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Smithy))) != actions.end();
+  SPIEL_CHECK_TRUE(can_select_smithy);
 }
 
 int main() {
@@ -593,5 +626,6 @@ int main() {
   TestThroneRoomIntoThroneRoomTwoActionsTwice();
   TestThroneRoomAllowsNoSelection();
   TestThroneRoomNoActionsShowsNoHandSelect();
+  TestThroneRoomIgnoresAscendingConstraint();
   return 0;
 }

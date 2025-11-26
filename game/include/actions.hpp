@@ -22,13 +22,21 @@ namespace ActionIds {
   // PlayHandIndex maps directly to CardName enumerator id present in hand counts.
   inline Action PlayHandIndex(int i) { return static_cast<Action>(i); }
   
-  // Generic hand selection effect actions.
-  inline int HandSelectBase() { return MaxHandSize(); }
-  inline Action HandSelect(int i) { return static_cast<Action>(HandSelectBase() + i); }
-  inline Action HandSelectFinish() { return static_cast<Action>(HandSelectBase() + MaxHandSize()); }
+  // Discard selection actions (effect-level, e.g., Cellar, Militia).
+  inline int DiscardHandBase() { return MaxHandSize(); }
+  inline Action DiscardHandSelect(int i) { return static_cast<Action>(DiscardHandBase() + i); }
+  inline Action DiscardHandSelectFinish() { return static_cast<Action>(DiscardHandBase() + MaxHandSize()); }
+
+  // Trash selection actions (effect-level, e.g., Chapel, Remodel).
+  inline int TrashHandBase() { return DiscardHandBase() + MaxHandSize() + 1; }
+  inline Action TrashHandSelect(int i) { return static_cast<Action>(TrashHandBase() + i); }
+  inline Action TrashHandSelectFinish() { return static_cast<Action>(TrashHandBase() + MaxHandSize()); }
+  
+  // Throne Room selection finish (effect-level): ends the current throne selection.
+  inline Action ThroneHandSelectFinish() { return static_cast<Action>(TrashHandSelectFinish() + 1); }
   
   // Phase control actions.
-  inline Action EndActions() { return static_cast<Action>(HandSelectFinish()+1); }
+  inline Action EndActions() { return static_cast<Action>(ThroneHandSelectFinish()+1); }
 
   // Buying from supply uses a base offset plus supply pile index.
   inline int BuyBase() { return EndActions()+1; }
@@ -39,6 +47,9 @@ namespace ActionIds {
   // Generic gain-from-supply selection actions (effect-level).
   inline int GainSelectBase() { return EndBuy()+1; }
   inline Action GainSelect(int j) { return static_cast<Action>(GainSelectBase() + j); }
+
+  // Chance outcome used in sampled stochastic mode for deck shuffling.
+  inline Action Shuffle() { return GainSelectBase() + kNumSupplyPiles; }
 }
 
 // Human-readable names for action IDs. The caller provides the supply size
