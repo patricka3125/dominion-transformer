@@ -6,6 +6,47 @@
 namespace open_spiel {
 namespace dominion {
 
+CellarEffectNode::CellarEffectNode(PendingChoice choice,
+                                   const HandSelectionStruct* hs) {
+  enforce_ascending = true;
+  if (hs) hand_ = *hs;
+  if (choice == PendingChoice::DiscardUpToCardsFromHand) {
+    on_action = CellarCard::CellarHandSelectHandler;
+  }
+}
+
+ChapelEffectNode::ChapelEffectNode(PendingChoice choice,
+                                   const HandSelectionStruct* hs) {
+  enforce_ascending = true;
+  if (hs) hand_ = *hs;
+  if (choice == PendingChoice::TrashUpToCardsFromHand) {
+    on_action = ChapelCard::ChapelHandTrashHandler;
+  }
+}
+
+RemodelTrashEffectNode::RemodelTrashEffectNode(PendingChoice choice,
+                                               const HandSelectionStruct* hs) {
+  enforce_ascending = true;
+  if (hs) hand_ = *hs;
+  if (choice == PendingChoice::TrashUpToCardsFromHand) {
+    on_action = RemodelCard::RemodelTrashFromHand;
+  }
+}
+
+MilitiaEffectNode::MilitiaEffectNode(PendingChoice choice,
+                                     const HandSelectionStruct* hs) {
+  enforce_ascending = false;
+  if (hs) hand_ = *hs;
+  if (choice == PendingChoice::DiscardUpToCardsFromHand) {
+    on_action = MilitiaCard::MilitiaOpponentDiscardHandler;
+  }
+}
+
+ThroneRoomEffectNode::ThroneRoomEffectNode(int depth) {
+  enforce_ascending = false;
+  for (int i = 0; i < depth; ++i) increment_throne_depth();
+}
+
 // Begin a fresh selection for an action card from hand.
 // - Sets pending choice to PlayActionFromHand
 // - Installs ThroneRoomSelectActionHandler on the front node
@@ -66,9 +107,7 @@ EffectNodeStructContents EffectNodeToStruct(const EffectNode& node) {
     s.kind = static_cast<int>(CardName::CARD_Workshop);
   }
   if (auto hs = node.hand_selection()) {
-    s.hand_target_hand_size = hs->target_hand_size_value();
-    s.hand_last_selected_original_index = hs->last_selected_original_index_value();
-    s.hand_selection_count = hs->selection_count_value();
+    s.hand = *hs;
   }
   if (auto gs = node.gain_from_board()) {
     s.gain_max_cost = gs->max_cost;
@@ -82,41 +121,16 @@ std::unique_ptr<EffectNode> EffectNodeFromStruct(const EffectNodeStructContents&
   auto card_kind = static_cast<CardName>(s.kind);
   switch (card_kind) {
     case CardName::CARD_Cellar: {
-      auto n = std::unique_ptr<CellarEffectNode>(new CellarEffectNode());
-      if (auto hs = n->hand_selection()) {
-        hs->set_target_hand_size(s.hand_target_hand_size);
-        hs->set_last_selected_original_index(s.hand_last_selected_original_index);
-        hs->set_selection_count(s.hand_selection_count);
-      }
-      if (pending_choice == PendingChoice::DiscardUpToCardsFromHand) {
-        n->on_action = CellarCard::CellarHandSelectHandler;
-      }
-      out = std::unique_ptr<EffectNode>(std::move(n));
+      out = std::unique_ptr<EffectNode>(new CellarEffectNode(pending_choice, &s.hand));
       break;
     }
     case CardName::CARD_Chapel: {
-      auto n = std::unique_ptr<ChapelEffectNode>(new ChapelEffectNode());
-      if (auto hs = n->hand_selection()) {
-        hs->set_target_hand_size(s.hand_target_hand_size);
-        hs->set_last_selected_original_index(s.hand_last_selected_original_index);
-        hs->set_selection_count(s.hand_selection_count);
-      }
-      if (pending_choice == PendingChoice::TrashUpToCardsFromHand) {
-        n->on_action = ChapelCard::ChapelHandTrashHandler;
-      }
-      out = std::unique_ptr<EffectNode>(std::move(n));
+      out = std::unique_ptr<EffectNode>(new ChapelEffectNode(pending_choice, &s.hand));
       break;
     }
     case CardName::CARD_Remodel: {
       if (pending_choice == PendingChoice::TrashUpToCardsFromHand) {
-        auto n = std::unique_ptr<RemodelTrashEffectNode>(new RemodelTrashEffectNode());
-        if (auto hs = n->hand_selection()) {
-          hs->set_target_hand_size(s.hand_target_hand_size);
-          hs->set_last_selected_original_index(s.hand_last_selected_original_index);
-          hs->set_selection_count(s.hand_selection_count);
-        }
-        n->on_action = RemodelCard::RemodelTrashFromHand;
-        out = std::unique_ptr<EffectNode>(std::move(n));
+        out = std::unique_ptr<EffectNode>(new RemodelTrashEffectNode(pending_choice, &s.hand));
       } else {
         auto n = std::unique_ptr<RemodelGainEffectNode>(new RemodelGainEffectNode(s.gain_max_cost));
         if (pending_choice == PendingChoice::SelectUpToCardsFromBoard) {
@@ -124,30 +138,14 @@ std::unique_ptr<EffectNode> EffectNodeFromStruct(const EffectNodeStructContents&
         }
         out = std::unique_ptr<EffectNode>(std::move(n));
       }
-      
       break;
     }
     case CardName::CARD_Militia: {
-      auto n = std::unique_ptr<MilitiaEffectNode>(new MilitiaEffectNode());
-      if (auto hs = n->hand_selection()) {
-        hs->set_target_hand_size(s.hand_target_hand_size);
-        hs->set_last_selected_original_index(s.hand_last_selected_original_index);
-        hs->set_selection_count(s.hand_selection_count);
-      }
-      if (pending_choice == PendingChoice::DiscardUpToCardsFromHand) {
-        n->on_action = MilitiaCard::MilitiaOpponentDiscardHandler;
-      }
-      out = std::unique_ptr<EffectNode>(std::move(n));
+      out = std::unique_ptr<EffectNode>(new MilitiaEffectNode(pending_choice, &s.hand));
       break;
     }
     case CardName::CARD_ThroneRoom: {
-      auto n = std::unique_ptr<ThroneRoomEffectNode>(new ThroneRoomEffectNode());
-      for (int i = 0; i < s.throne_select_depth; ++i) n->increment_throne_depth();
-      if (auto hs = n->hand_selection()) {
-        hs->set_target_hand_size(s.hand_target_hand_size);
-        hs->set_last_selected_original_index(s.hand_last_selected_original_index);
-        hs->set_selection_count(s.hand_selection_count);
-      }
+      auto n = std::unique_ptr<ThroneRoomEffectNode>(new ThroneRoomEffectNode(s.throne_select_depth));
       if (pending_choice == PendingChoice::PlayActionFromHand) {
         n->on_action = ThroneRoomCard::ThroneRoomSelectActionHandler;
       }

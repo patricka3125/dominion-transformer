@@ -14,6 +14,9 @@ Build and generate playthrough:
 bash -lc 'cmake --build /path/to/open_spiel/build -j 8 && source /path/to/open_spiel/venv/bin/activate && cd /path/to/open_spiel && open_spiel/scripts/generate_new_playthrough.sh dominion'
 ```
 
+## Known bugs:
+* Remodel should not present finish option during trashing, and the effect should resolve if there are no cards left to be trashed in hand.
+
 ## TODO (in order):
 * Represent cards and card effects as fixed feature embeddings + card effect embeddings.
 * Need to implement refining the data that is returned by Information and Observation state.

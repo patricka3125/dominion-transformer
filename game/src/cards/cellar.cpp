@@ -37,7 +37,7 @@ void CellarCard::applyEffect(DominionState& state, int player) const {
   auto& ps = state.player_states_[player];
   ps.effect_queue.clear();
   {
-    std::unique_ptr<EffectNode> n(new CellarEffectNode());
+    std::unique_ptr<EffectNode> n(new CellarEffectNode(PendingChoice::DiscardUpToCardsFromHand));
     ps.effect_queue.push_back(std::move(n));
     Card::InitHandSelection(state, player, ps.effect_queue.front().get(), PendingChoice::DiscardUpToCardsFromHand);
   }

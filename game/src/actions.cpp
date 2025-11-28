@@ -56,6 +56,21 @@ std::string ActionNames::NameWithCard(Action action_id,
     if (j >= 0 && j < num_supply_piles) {
       base += std::string(" (") + cname(static_cast<CardName>(j)) + ")";
     }
+  } else if (action_id >= DiscardHandBase() && action_id < DiscardHandBase() + num_supply_piles) {
+    int j = static_cast<int>(action_id - DiscardHandBase());
+    if (j >= 0 && j < num_supply_piles) {
+      base += std::string(" (") + cname(static_cast<CardName>(j)) + ")";
+    }
+  } else if (action_id >= TrashHandBase() && action_id < TrashHandBase() + num_supply_piles) {
+    int j = static_cast<int>(action_id - TrashHandBase());
+    if (j >= 0 && j < num_supply_piles) {
+      base += std::string(" (") + cname(static_cast<CardName>(j)) + ")";
+    }
+  } else if (action_id >= GainSelectBase() && action_id < GainSelectBase() + num_supply_piles) {
+    int j = static_cast<int>(action_id - GainSelectBase());
+    if (j >= 0 && j < num_supply_piles) {
+      base += std::string(" (") + cname(static_cast<CardName>(j)) + ")";
+    }
   }
   return base;
 }

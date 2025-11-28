@@ -17,8 +17,8 @@ bool RemodelCard::RemodelTrashFromHand(DominionState& st, int pl, Action action_
     int j = static_cast<int>(action_id - ActionIds::TrashHandBase());
     SPIEL_CHECK_TRUE(j >= 0 && j < kNumSupplyPiles);
     SPIEL_CHECK_TRUE(p.hand_counts_[j] > 0);
+    // Ascending selection is not enforced for trash; allow any index present in hand.
     const auto* hs = node ? node->hand_selection() : nullptr;
-    SPIEL_CHECK_TRUE(hs == nullptr || hs->last_selected_original_index_value() < 0 || j >= hs->last_selected_original_index_value());
     const Card& selected = GetCardSpec(static_cast<CardName>(j));
     int cap = selected.cost_ + 2;
     // Trash selection: remove from hand.
@@ -40,7 +40,7 @@ void RemodelCard::applyEffect(DominionState& state, int player) const {
   auto& ps = state.player_states_[player];
   ps.effect_queue.clear();
   {
-    std::unique_ptr<EffectNode> n(new RemodelTrashEffectNode());
+    std::unique_ptr<EffectNode> n(new RemodelTrashEffectNode(PendingChoice::TrashUpToCardsFromHand));
     ps.effect_queue.push_back(std::move(n));
     Card::InitHandSelection(state, player, ps.effect_queue.front().get(), PendingChoice::TrashUpToCardsFromHand);
   }

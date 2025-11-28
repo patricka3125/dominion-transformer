@@ -23,6 +23,7 @@ public:
   // Polymorphic deep copy, used in PlayerState copy construction.
   virtual std::unique_ptr<EffectNode> clone() const = 0;
   std::function<bool(DominionState&, int, Action)> on_action;
+  bool enforce_ascending = false;
   virtual struct HandSelectionStruct* hand_selection() { return nullptr; }
   virtual const struct HandSelectionStruct* hand_selection() const { return nullptr; }
   virtual struct GainFromBoardStruct* gain_from_board() { return nullptr; }
@@ -45,6 +46,10 @@ struct HandSelectionStruct {
   void increment_selection_count() { ++selection_count; }
   void set_selection_count(int v) { selection_count = v; }
   void reset_selection() { last_selected_original_index = -1; selection_count = 0; }
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE(HandSelectionStruct,
+                                 target_hand_size,
+                                 last_selected_original_index,
+                                 selection_count)
 };
 
 // Effect-local state for gain-from-board flows.
@@ -57,10 +62,13 @@ struct GainFromBoardStruct {
 // Cellar: discard any number, then draw equal.
 class CellarEffectNode : public EffectNode {
 public:
+  CellarEffectNode(PendingChoice choice = (PendingChoice)0,
+                   const HandSelectionStruct* hs = nullptr);
   std::unique_ptr<EffectNode> clone() const override {
     auto n = std::unique_ptr<CellarEffectNode>(new CellarEffectNode());
     n->hand_ = hand_;
     n->on_action = on_action;
+    n->enforce_ascending = enforce_ascending;
     return std::unique_ptr<EffectNode>(std::move(n));
   }
   HandSelectionStruct* hand_selection() override { return &hand_; }
@@ -72,10 +80,13 @@ private:
 // Chapel: trash up to 4 cards.
 class ChapelEffectNode : public EffectNode {
 public:
+  ChapelEffectNode(PendingChoice choice = (PendingChoice)0,
+                   const HandSelectionStruct* hs = nullptr);
   std::unique_ptr<EffectNode> clone() const override {
     auto n = std::unique_ptr<ChapelEffectNode>(new ChapelEffectNode());
     n->hand_ = hand_;
     n->on_action = on_action;
+    n->enforce_ascending = enforce_ascending;
     return std::unique_ptr<EffectNode>(std::move(n));
   }
   HandSelectionStruct* hand_selection() override { return &hand_; }
@@ -87,10 +98,13 @@ private:
 // Remodel stage-1: trash a card from hand.
 class RemodelTrashEffectNode : public EffectNode {
 public:
+  RemodelTrashEffectNode(PendingChoice choice = (PendingChoice)0,
+                         const HandSelectionStruct* hs = nullptr);
   std::unique_ptr<EffectNode> clone() const override {
     auto n = std::unique_ptr<RemodelTrashEffectNode>(new RemodelTrashEffectNode());
     n->hand_ = hand_;
     n->on_action = on_action;
+    n->enforce_ascending = enforce_ascending;
     return std::unique_ptr<EffectNode>(std::move(n));
   }
   HandSelectionStruct* hand_selection() override { return &hand_; }
@@ -102,10 +116,13 @@ private:
 // Militia: opponent discards down to target hand size.
 class MilitiaEffectNode : public EffectNode {
 public:
+  MilitiaEffectNode(PendingChoice choice = (PendingChoice)0,
+                    const HandSelectionStruct* hs = nullptr);
   std::unique_ptr<EffectNode> clone() const override {
     auto n = std::unique_ptr<MilitiaEffectNode>(new MilitiaEffectNode());
     n->hand_ = hand_;
     n->on_action = on_action;
+    n->enforce_ascending = enforce_ascending;
     return std::unique_ptr<EffectNode>(std::move(n));
   }
   HandSelectionStruct* hand_selection() override { return &hand_; }
@@ -118,11 +135,13 @@ private:
 // chains additional selection depth until a non-Throne action is chosen.
 class ThroneRoomEffectNode : public EffectNode {
 public:
+  explicit ThroneRoomEffectNode(int depth = 0);
   std::unique_ptr<EffectNode> clone() const override {
     auto n = std::unique_ptr<ThroneRoomEffectNode>(new ThroneRoomEffectNode());
     n->hand_ = hand_;
     for (int i = 0; i < throne_select_depth_; ++i) n->increment_throne_depth();
     n->on_action = on_action;
+    n->enforce_ascending = enforce_ascending;
     return std::unique_ptr<EffectNode>(std::move(n));
   }
   int throne_depth() const { return throne_select_depth_; }
@@ -175,16 +194,12 @@ private:
 
 struct EffectNodeStructContents {
   int kind = 0;
-  int hand_target_hand_size = 0;
-  int hand_last_selected_original_index = -1;
-  int hand_selection_count = 0;
+  HandSelectionStruct hand;
   int gain_max_cost = 0;
   int throne_select_depth = 0;
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(EffectNodeStructContents,
                                  kind,
-                                 hand_target_hand_size,
-                                 hand_last_selected_original_index,
-                                 hand_selection_count,
+                                 hand,
                                  gain_max_cost,
                                  throne_select_depth)
 };

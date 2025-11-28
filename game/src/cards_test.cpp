@@ -229,6 +229,26 @@ static void TestWorkshopGain() {
   SPIEL_CHECK_EQ(DominionTestHarness::SupplyCount(ds, smithy_idx), smithy_pile_before - 1);
 }
 
+static void TestActionToStringAppendsCardNames() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  int estate_idx = static_cast<int>(CardName::CARD_Estate);
+  int copper_idx = static_cast<int>(CardName::CARD_Copper);
+  int smithy_idx = static_cast<int>(CardName::CARD_Smithy);
+
+  std::string s1 = ds->ActionToString(ds->CurrentPlayer(), open_spiel::dominion::ActionIds::DiscardHandSelect(estate_idx));
+  SPIEL_CHECK_TRUE(s1.find("(Estate)") != std::string::npos);
+
+  std::string s2 = ds->ActionToString(ds->CurrentPlayer(), open_spiel::dominion::ActionIds::TrashHandSelect(copper_idx));
+  SPIEL_CHECK_TRUE(s2.find("(Copper)") != std::string::npos);
+
+  std::string s3 = ds->ActionToString(ds->CurrentPlayer(), open_spiel::dominion::ActionIds::GainSelect(smithy_idx));
+  SPIEL_CHECK_TRUE(s3.find("(Smithy)") != std::string::npos);
+}
+
 
 static void TestRemodelTrashThenGain() {
   std::shared_ptr<const Game> game = LoadGame("dominion");
@@ -495,6 +515,7 @@ int main() {
   open_spiel::dominion::RunCellarTests();
   TestDiscardFinishVisibility();
   open_spiel::dominion::RunWorkshopTests();
+  TestActionToStringAppendsCardNames();
   open_spiel::dominion::RunChapelTests();
   open_spiel::dominion::RunRemodelTests();
   open_spiel::dominion::RunMilitiaTests();

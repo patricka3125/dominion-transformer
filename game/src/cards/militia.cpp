@@ -35,7 +35,7 @@ void MilitiaCard::applyEffect(DominionState& state, int player) const {
   if (opp_hand_sz > 3) {
     p_opp.effect_queue.clear();
     {
-      std::unique_ptr<EffectNode> n(new MilitiaEffectNode());
+      std::unique_ptr<EffectNode> n(new MilitiaEffectNode(PendingChoice::DiscardUpToCardsFromHand));
       p_opp.effect_queue.push_back(std::move(n));
       auto* hs = p_opp.effect_queue.front()->hand_selection();
       if (hs) hs->set_target_hand_size(3);
