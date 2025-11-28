@@ -43,6 +43,20 @@ using open_spiel::dominion::Phase;
 using open_spiel::dominion::DominionTestHarness;
 // use qualified open_spiel::dominion::ActionIds below
 
+namespace open_spiel { namespace dominion { void RunChapelTests(); } }
+namespace open_spiel { namespace dominion { void RunCellarTests(); } }
+namespace open_spiel { namespace dominion { void RunWorkshopTests(); } }
+namespace open_spiel { namespace dominion { void RunRemodelTests(); } }
+namespace open_spiel { namespace dominion { void RunMilitiaTests(); } }
+namespace open_spiel { namespace dominion { void RunWitchTests(); } }
+namespace open_spiel { namespace dominion { void RunThroneRoomTests(); } }
+namespace open_spiel { namespace dominion { void RunCellarTests(); } }
+namespace open_spiel { namespace dominion { void RunWorkshopTests(); } }
+namespace open_spiel { namespace dominion { void RunRemodelTests(); } }
+namespace open_spiel { namespace dominion { void RunMilitiaTests(); } }
+namespace open_spiel { namespace dominion { void RunWitchTests(); } }
+namespace open_spiel { namespace dominion { void RunThroneRoomTests(); } }
+
 static void TestMarket() {
   std::shared_ptr<const Game> game = LoadGame("dominion");
   std::unique_ptr<State> state = game->NewInitialState();
@@ -137,115 +151,7 @@ static void TestMoat() {
   SPIEL_CHECK_EQ(DominionTestHarness::PlayAreaSize(ds), 1);
 }
 
-static void TestCellar() {
-  std::shared_ptr<const Game> game = LoadGame("dominion");
-  std::unique_ptr<State> state = game->NewInitialState();
-  auto* ds = dynamic_cast<DominionState*>(state.get());
-  SPIEL_CHECK_TRUE(ds != nullptr);
 
-  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Cellar);
-  DominionTestHarness::SetPhase(ds, Phase::actionPhase);
-  int hand_before = DominionTestHarness::HandSize(ds, 0);
-  int actions_before = DominionTestHarness::Actions(ds);
-  int discard_before = DominionTestHarness::DiscardSize(ds, 0);
-
-  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Cellar))); // play Cellar
-
-  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0)); // discard first card
-  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0)); // discard next first card
-  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelectFinish());     // finish, draw 2
-
-  SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, 0), hand_before - 1);
-  SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), actions_before);
-  SPIEL_CHECK_EQ(DominionTestHarness::DiscardSize(ds, 0), discard_before + 2);
-  SPIEL_CHECK_EQ(DominionTestHarness::PlayAreaSize(ds), 1);
-}
-
-static void TestCellarZeroDiscard() {
-  std::shared_ptr<const Game> game = LoadGame("dominion");
-  std::unique_ptr<State> state = game->NewInitialState();
-  auto* ds = dynamic_cast<DominionState*>(state.get());
-  SPIEL_CHECK_TRUE(ds != nullptr);
-
-  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Cellar);
-  DominionTestHarness::SetPhase(ds, Phase::actionPhase);
-  int hand_before = DominionTestHarness::HandSize(ds, 0);
-  int actions_before = DominionTestHarness::Actions(ds);
-  int discard_before = DominionTestHarness::DiscardSize(ds, 0);
-
-  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Cellar))); // play Cellar
-  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelectFinish());             // finish without discards
-
-  SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, 0), hand_before - 1);
-  SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), actions_before);
-  SPIEL_CHECK_EQ(DominionTestHarness::DiscardSize(ds, 0), discard_before);
-  SPIEL_CHECK_EQ(DominionTestHarness::PlayAreaSize(ds), 1);
-}
-
-static void TestCellarActionStrings() {
-  std::shared_ptr<const Game> game = LoadGame("dominion");
-  std::unique_ptr<State> state = game->NewInitialState();
-  auto* ds = dynamic_cast<DominionState*>(state.get());
-  SPIEL_CHECK_TRUE(ds != nullptr);
-
-  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Cellar);
-  DominionTestHarness::SetPhase(ds, Phase::actionPhase);
-  int hand_before = DominionTestHarness::HandSize(ds, 0);
-
-  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Cellar))); // play Cellar
-
-  auto actions = ds->LegalActions();
-  bool has_finish = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::DiscardHandSelectFinish()) != actions.end();
-  bool has_select0 = std::find(actions.begin(), actions.end(), open_spiel::dominion::ActionIds::DiscardHandSelect(0)) != actions.end();
-  SPIEL_CHECK_TRUE(has_finish);
-  SPIEL_CHECK_TRUE(has_select0);
-}
-
-static void TestCellarOneDiscard() {
-  std::shared_ptr<const Game> game = LoadGame("dominion");
-  std::unique_ptr<State> state = game->NewInitialState();
-  auto* ds = dynamic_cast<DominionState*>(state.get());
-  SPIEL_CHECK_TRUE(ds != nullptr);
-
-  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Cellar);
-  DominionTestHarness::SetPhase(ds, Phase::actionPhase);
-  int hand_before = DominionTestHarness::HandSize(ds, 0);
-  int actions_before = DominionTestHarness::Actions(ds);
-  int discard_before = DominionTestHarness::DiscardSize(ds, 0);
-
-  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Cellar))); // play Cellar
-  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0));         // discard one
-  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelectFinish());             // finish, draw one
-
-  SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, 0), hand_before - 1);
-  SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), actions_before);
-  SPIEL_CHECK_EQ(DominionTestHarness::DiscardSize(ds, 0), discard_before + 1);
-  SPIEL_CHECK_EQ(DominionTestHarness::PlayAreaSize(ds), 1);
-}
-
-static void TestCellarThreeDiscards() {
-  std::shared_ptr<const Game> game = LoadGame("dominion");
-  std::unique_ptr<State> state = game->NewInitialState();
-  auto* ds = dynamic_cast<DominionState*>(state.get());
-  SPIEL_CHECK_TRUE(ds != nullptr);
-
-  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Cellar);
-  DominionTestHarness::SetPhase(ds, Phase::actionPhase);
-  int hand_before = DominionTestHarness::HandSize(ds, 0);
-  int actions_before = DominionTestHarness::Actions(ds);
-  int discard_before = DominionTestHarness::DiscardSize(ds, 0);
-
-  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Cellar))); // play Cellar
-  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0));         // discard #1
-  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0));         // discard #2 (index shifts)
-  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0));         // discard #3
-  ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelectFinish());             // finish, draw three
-
-  SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, 0), hand_before - 1);
-  SPIEL_CHECK_EQ(DominionTestHarness::Actions(ds), actions_before);
-  SPIEL_CHECK_EQ(DominionTestHarness::DiscardSize(ds, 0), discard_before + 3);
-  SPIEL_CHECK_EQ(DominionTestHarness::PlayAreaSize(ds), 1);
-}
 
 // Verifies that DiscardFinish only appears while a discard effect is active
 // and disappears immediately after finishing the effect.
@@ -316,36 +222,6 @@ static void TestWorkshopGain() {
   SPIEL_CHECK_EQ(DominionTestHarness::SupplyCount(ds, smithy_idx), smithy_pile_before - 1);
 }
 
-static void TestChapelTrashUpToFour() {
-  std::shared_ptr<const Game> game = LoadGame("dominion");
-  std::unique_ptr<State> state = game->NewInitialState();
-  auto* ds = dynamic_cast<DominionState*>(state.get());
-  SPIEL_CHECK_TRUE(ds != nullptr);
-
-  // Add two Estates and two Coppers to ensure we can trash 4, then Chapel last.
-  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Estate);
-  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Estate);
-  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Copper);
-  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Copper);
-  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Chapel);
-  DominionTestHarness::SetPhase(ds, Phase::actionPhase);
-
-  int hand_before = DominionTestHarness::HandSize(ds, 0);
-  int discard_before = DominionTestHarness::DiscardSize(ds, 0);
-
-  // Play Chapel (last in hand).
-  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Chapel)));
-
-  // Trash four cards via successive hand selections.
-  for (int k = 0; k < 4; ++k) {
-    ds->ApplyAction(open_spiel::dominion::ActionIds::TrashHandSelect(0));
-  }
-
-  // After trashing 4, effect ends automatically and no cards were added to discard.
-  SPIEL_CHECK_EQ(DominionTestHarness::DiscardSize(ds, 0), discard_before);
-  // Hand decreased by 5: played Chapel (-1) and trashed 4 (-4).
-  SPIEL_CHECK_EQ(DominionTestHarness::HandSize(ds, 0), hand_before - 5);
-}
 
 static void TestRemodelTrashThenGain() {
   std::shared_ptr<const Game> game = LoadGame("dominion");
@@ -522,12 +398,10 @@ static void TestThroneRoomIntoThroneRoomTwoActionsTwice() {
   // No further selection is active.
   {
     auto la = ds->LegalActions();
-    bool has_select = false;
-    for (auto a : la) {
-      std::string s = ds->ActionToString(ds->CurrentPlayer(), a);
-      if (s.find("PlayHandIndex_") == 0) { has_select = true; break; }
-    }
-    SPIEL_CHECK_FALSE(has_select);
+    bool has_throne_finish = std::find(
+        la.begin(), la.end(), open_spiel::dominion::ActionIds::ThroneHandSelectFinish())
+        != la.end();
+    SPIEL_CHECK_FALSE(has_throne_finish);
   }
 }
 
@@ -611,21 +485,13 @@ int main() {
   TestSmithy();
   TestFestival();
   TestMoat();
-  TestCellar();
-  TestCellarZeroDiscard();
-  TestCellarActionStrings();
-  TestCellarOneDiscard();
-  TestCellarThreeDiscards();
+  open_spiel::dominion::RunCellarTests();
   TestDiscardFinishVisibility();
-  TestWorkshopGain();
-  TestChapelTrashUpToFour();
-  TestRemodelTrashThenGain();
-  TestMilitiaOpponentDiscardsToThree();
-  TestWitchGivesCurseToOpponent();
-  TestThroneRoomPlaysCardTwiceEffectOnlySecond();
-  TestThroneRoomIntoThroneRoomTwoActionsTwice();
-  TestThroneRoomAllowsNoSelection();
-  TestThroneRoomNoActionsShowsNoHandSelect();
-  TestThroneRoomIgnoresAscendingConstraint();
+  open_spiel::dominion::RunWorkshopTests();
+  open_spiel::dominion::RunChapelTests();
+  open_spiel::dominion::RunRemodelTests();
+  open_spiel::dominion::RunMilitiaTests();
+  open_spiel::dominion::RunWitchTests();
+  open_spiel::dominion::RunThroneRoomTests();
   return 0;
 }

@@ -48,6 +48,13 @@ add_library(dominion_cpp_game STATIC
     src/dominion.cpp
     src/cards.cpp
     src/actions.cpp
+    src/cards/chapel.cpp
+    src/cards/cellar.cpp
+    src/cards/workshop.cpp
+    src/cards/remodel.cpp
+    src/cards/militia.cpp
+    src/cards/witch.cpp
+    src/cards/throne_room.cpp
 )
 
 # Public headers and OpenSpiel headers
@@ -79,6 +86,13 @@ find_library(OPEN_SPIEL_LIB open_spiel
 if (OPEN_SPIEL_LIB)
   add_executable(dominion_cards_test
       src/cards_test.cpp
+      src/cards/chapel_test.cpp
+      src/cards/cellar_test.cpp
+      src/cards/workshop_test.cpp
+      src/cards/remodel_test.cpp
+      src/cards/militia_test.cpp
+      src/cards/witch_test.cpp
+      src/cards/throne_room_test.cpp
   )
   target_link_libraries(dominion_cards_test
       dominion_cpp_game
