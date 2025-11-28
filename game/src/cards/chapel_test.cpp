@@ -59,4 +59,58 @@ void RunChapelTests() {
   SPIEL_CHECK_EQ(HandSize(ds, 0), hand_before - 5);
 }
 
+void RunChapelJsonRoundTrip() {
+  using open_spiel::LoadGame;
+  using open_spiel::State;
+  using open_spiel::Game;
+
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  AddCardToHand(ds, 0, CardName::CARD_Estate);
+  AddCardToHand(ds, 0, CardName::CARD_Estate);
+  AddCardToHand(ds, 0, CardName::CARD_Copper);
+  AddCardToHand(ds, 0, CardName::CARD_Copper);
+  AddCardToHand(ds, 0, CardName::CARD_Chapel);
+  SetPhase(ds, Phase::actionPhase);
+
+  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Chapel)));
+  // Trash three cards but leave effect pending.
+  ds->ApplyAction(open_spiel::dominion::ActionIds::TrashHandSelect(0));
+  ds->ApplyAction(open_spiel::dominion::ActionIds::TrashHandSelect(0));
+  ds->ApplyAction(open_spiel::dominion::ActionIds::TrashHandSelect(0));
+
+  // JSON round-trip
+  std::string json_str = ds->ToJson();
+  nlohmann::json j = nlohmann::json::parse(json_str);
+  std::unique_ptr<State> state_copy = game->NewInitialState(j);
+  auto* ds_copy = dynamic_cast<DominionState*>(state_copy.get());
+  SPIEL_CHECK_TRUE(ds_copy != nullptr);
+  // Still pending and can trash more or finish.
+  auto la = ds_copy->LegalActions();
+  bool can_trash = false, can_finish = false;
+  for (auto a : la) {
+    if (a == open_spiel::dominion::ActionIds::TrashHandSelect(0)) can_trash = true;
+    if (a == open_spiel::dominion::ActionIds::TrashHandSelectFinish()) can_finish = true;
+  }
+  SPIEL_CHECK_TRUE(can_trash);
+  SPIEL_CHECK_TRUE(can_finish);
+
+  // String round-trip
+  std::string serialized = ds->Serialize();
+  std::unique_ptr<State> state_copy2 = game->DeserializeState(serialized);
+  auto* ds_copy2 = dynamic_cast<DominionState*>(state_copy2.get());
+  SPIEL_CHECK_TRUE(ds_copy2 != nullptr);
+  auto la2 = ds_copy2->LegalActions();
+  bool can_trash2 = false, can_finish2 = false;
+  for (auto a : la2) {
+    if (a == open_spiel::dominion::ActionIds::TrashHandSelect(0)) can_trash2 = true;
+    if (a == open_spiel::dominion::ActionIds::TrashHandSelectFinish()) can_finish2 = true;
+  }
+  SPIEL_CHECK_TRUE(can_trash2);
+  SPIEL_CHECK_TRUE(can_finish2);
+}
+
 } } // namespace open_spiel::dominion

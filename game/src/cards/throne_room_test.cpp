@@ -131,4 +131,34 @@ void RunThroneRoomTests() {
   }
 }
 
+void RunThroneRoomJsonRoundTrip() {
+  using open_spiel::LoadGame;
+  using open_spiel::State;
+  using open_spiel::Game;
+
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  AddCardToHand(ds, 0, CardName::CARD_ThroneRoom);
+  AddCardToHand(ds, 0, CardName::CARD_Smithy);
+  SetPhase(ds, Phase::actionPhase);
+
+  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_ThroneRoom)));
+  // Round-trip while selection pending.
+  std::string json_str = ds->ToJson();
+  nlohmann::json j = nlohmann::json::parse(json_str);
+  std::unique_ptr<State> state_copy = game->NewInitialState(j);
+  auto* ds_copy = dynamic_cast<DominionState*>(state_copy.get());
+  SPIEL_CHECK_TRUE(ds_copy != nullptr);
+  auto actions = ds_copy->LegalActions();
+  bool can_select_action = false;
+  for (auto a : actions) {
+    std::string s = ds_copy->ActionToString(ds_copy->CurrentPlayer(), a);
+    if (s.find("PlayHandIndex_") == 0) { can_select_action = true; break; }
+  }
+  SPIEL_CHECK_TRUE(can_select_action);
+}
+
 } } // namespace open_spiel::dominion

@@ -50,6 +50,13 @@ namespace open_spiel { namespace dominion { void RunRemodelTests(); } }
 namespace open_spiel { namespace dominion { void RunMilitiaTests(); } }
 namespace open_spiel { namespace dominion { void RunWitchTests(); } }
 namespace open_spiel { namespace dominion { void RunThroneRoomTests(); } }
+namespace open_spiel { namespace dominion { void RunChapelJsonRoundTrip(); } }
+namespace open_spiel { namespace dominion { void RunCellarJsonRoundTrip(); } }
+namespace open_spiel { namespace dominion { void RunWorkshopJsonRoundTrip(); } }
+namespace open_spiel { namespace dominion { void RunRemodelJsonRoundTrip(); } }
+namespace open_spiel { namespace dominion { void RunMilitiaJsonRoundTrip(); } }
+namespace open_spiel { namespace dominion { void RunThroneRoomJsonRoundTrip(); } }
+namespace open_spiel { namespace dominion { void RunWitchJsonRoundTrip(); } }
 namespace open_spiel { namespace dominion { void RunCellarTests(); } }
 namespace open_spiel { namespace dominion { void RunWorkshopTests(); } }
 namespace open_spiel { namespace dominion { void RunRemodelTests(); } }
@@ -493,5 +500,13 @@ int main() {
   open_spiel::dominion::RunMilitiaTests();
   open_spiel::dominion::RunWitchTests();
   open_spiel::dominion::RunThroneRoomTests();
+  // JSON round-trip checks
+  open_spiel::dominion::RunChapelJsonRoundTrip();
+  open_spiel::dominion::RunCellarJsonRoundTrip();
+  open_spiel::dominion::RunWorkshopJsonRoundTrip();
+  open_spiel::dominion::RunRemodelJsonRoundTrip();
+  open_spiel::dominion::RunMilitiaJsonRoundTrip();
+  open_spiel::dominion::RunThroneRoomJsonRoundTrip();
+  open_spiel::dominion::RunWitchJsonRoundTrip();
   return 0;
 }

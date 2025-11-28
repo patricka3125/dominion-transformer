@@ -44,5 +44,33 @@ void RunWitchTests() {
   SPIEL_CHECK_EQ(SupplyCount(ds, curse_idx), curse_supply_before - 1);
 }
 
-} } // namespace open_spiel::dominion
+void RunWitchJsonRoundTrip() {
+  using open_spiel::LoadGame;
+  using open_spiel::State;
+  using open_spiel::Game;
 
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  AddCardToHand(ds, 0, CardName::CARD_Witch);
+  SetPhase(ds, Phase::actionPhase);
+  int hand_before_p0 = HandSize(ds, 0);
+  int curse_idx = static_cast<int>(CardName::CARD_Curse);
+  int curse_supply_before = SupplyCount(ds, curse_idx);
+  int opp_discard_before = DiscardSize(ds, 1);
+
+  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Witch)));
+
+  std::string json_str = ds->ToJson();
+  nlohmann::json j = nlohmann::json::parse(json_str);
+  std::unique_ptr<State> state_copy = game->NewInitialState(j);
+  auto* ds_copy = dynamic_cast<DominionState*>(state_copy.get());
+  SPIEL_CHECK_TRUE(ds_copy != nullptr);
+  SPIEL_CHECK_EQ(HandSize(ds_copy, 0), hand_before_p0 + 1);
+  SPIEL_CHECK_EQ(DiscardSize(ds_copy, 1), opp_discard_before + 1);
+  SPIEL_CHECK_EQ(SupplyCount(ds_copy, curse_idx), curse_supply_before - 1);
+}
+
+} } // namespace open_spiel::dominion

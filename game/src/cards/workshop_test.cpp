@@ -48,5 +48,29 @@ void RunWorkshopTests() {
   SPIEL_CHECK_EQ(SupplyCount(ds, smithy_idx), smithy_pile_before - 1);
 }
 
-} } // namespace open_spiel::dominion
+void RunWorkshopJsonRoundTrip() {
+  using open_spiel::LoadGame;
+  using open_spiel::State;
+  using open_spiel::Game;
 
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  AddCardToHand(ds, 0, CardName::CARD_Workshop);
+  SetPhase(ds, Phase::actionPhase);
+  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Workshop)));
+
+  std::string json_str = ds->ToJson();
+  nlohmann::json j = nlohmann::json::parse(json_str);
+  std::unique_ptr<State> state_copy = game->NewInitialState(j);
+  auto* ds_copy = dynamic_cast<DominionState*>(state_copy.get());
+  SPIEL_CHECK_TRUE(ds_copy != nullptr);
+  auto la = ds_copy->LegalActions();
+  int smithy_idx = static_cast<int>(CardName::CARD_Smithy);
+  bool can_gain_smithy = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::GainSelect(smithy_idx)) != la.end();
+  SPIEL_CHECK_TRUE(can_gain_smithy);
+}
+
+} } // namespace open_spiel::dominion
