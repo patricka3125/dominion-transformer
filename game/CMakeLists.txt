@@ -48,6 +48,8 @@ add_library(dominion_cpp_game STATIC
     src/dominion.cpp
     src/cards.cpp
     src/actions.cpp
+    include/effects.hpp
+    src/effects.cpp
     src/cards/chapel.cpp
     src/cards/cellar.cpp
     src/cards/workshop.cpp

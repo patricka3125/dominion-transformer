@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "open_spiel/spiel.h"
+#include "effects.hpp"
 
 namespace open_spiel {
 namespace dominion {
@@ -17,127 +18,6 @@ enum class PendingChoice : int;
 
 class DominionState;
 
-class EffectNode {
-public:
-  virtual ~EffectNode() = default;
-  // Polymorphic deep copy of the effect chain.
-  virtual std::unique_ptr<EffectNode> clone() const = 0;
-  // Optional callback that handles actions while this effect is pending.
-  // Returns true if the action was consumed.
-  std::function<bool(DominionState&, int, Action)> on_action;
-};
-
-class HandSelectionEffectNode : public EffectNode {
-public:
-  std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<HandSelectionEffectNode>(new HandSelectionEffectNode());
-    n->target_hand_size_ = target_hand_size_;
-    n->last_selected_original_index_ = last_selected_original_index_;
-    n->selection_count_ = selection_count_;
-    n->on_action = on_action;
-    return std::unique_ptr<EffectNode>(std::move(n));
-  }
-  void set_target_hand_size(int v) { target_hand_size_ = v; }
-  int target_hand_size() const { return target_hand_size_; }
-  int last_selected_original_index() const { return last_selected_original_index_; }
-  void set_last_selected_original_index(int j) { last_selected_original_index_ = j; }
-  int selection_count() const { return selection_count_; }
-  void increment_selection_count() { ++selection_count_; }
-  void set_selection_count(int v) { selection_count_ = v; }
-  void reset_selection() { last_selected_original_index_ = -1; selection_count_ = 0; }
-protected:
-  int target_hand_size_ = 0;
-  int last_selected_original_index_ = -1;
-  int selection_count_ = 0;
-};
-
-class GainFromBoardEffectNode : public EffectNode {
-public:
-  explicit GainFromBoardEffectNode(int max_cost)
-      : max_cost_(max_cost) {}
-  std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<GainFromBoardEffectNode>(new GainFromBoardEffectNode(max_cost_));
-    n->on_action = on_action;
-    return std::unique_ptr<EffectNode>(std::move(n));
-  }
-  int max_cost() const { return max_cost_; }
-private:
-  int max_cost_ = 0;
-};
-
-class CellarEffectNode : public HandSelectionEffectNode {
-public:
-  std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<CellarEffectNode>(new CellarEffectNode());
-    n->set_target_hand_size(this->target_hand_size());
-    n->set_last_selected_original_index(this->last_selected_original_index());
-    n->set_selection_count(this->selection_count());
-    n->on_action = on_action;
-    return std::unique_ptr<EffectNode>(std::move(n));
-  }
-};
-
-class ChapelEffectNode : public HandSelectionEffectNode {
-public:
-  std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<ChapelEffectNode>(new ChapelEffectNode());
-    n->set_target_hand_size(this->target_hand_size());
-    n->set_last_selected_original_index(this->last_selected_original_index());
-    n->set_selection_count(this->selection_count());
-    n->on_action = on_action;
-    return std::unique_ptr<EffectNode>(std::move(n));
-  }
-};
-
-class RemodelTrashEffectNode : public HandSelectionEffectNode {
-public:
-  std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<RemodelTrashEffectNode>(new RemodelTrashEffectNode());
-    n->set_target_hand_size(this->target_hand_size());
-    n->set_last_selected_original_index(this->last_selected_original_index());
-    n->set_selection_count(this->selection_count());
-    n->on_action = on_action;
-    return std::unique_ptr<EffectNode>(std::move(n));
-  }
-};
-
-class MilitiaEffectNode : public HandSelectionEffectNode {
-public:
-  std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<MilitiaEffectNode>(new MilitiaEffectNode());
-    n->set_target_hand_size(this->target_hand_size());
-    n->set_last_selected_original_index(this->last_selected_original_index());
-    n->set_selection_count(this->selection_count());
-    n->on_action = on_action;
-    return std::unique_ptr<EffectNode>(std::move(n));
-  }
-};
-
-class ThroneRoomEffectNode : public HandSelectionEffectNode {
-public:
-  std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<ThroneRoomEffectNode>(new ThroneRoomEffectNode());
-    n->set_target_hand_size(this->target_hand_size());
-    n->set_last_selected_original_index(this->last_selected_original_index());
-    n->set_selection_count(this->selection_count());
-    for (int i = 0; i < throne_select_depth_; ++i) n->increment_throne_depth();
-    n->on_action = on_action;
-    return std::unique_ptr<EffectNode>(std::move(n));
-  }
-  int throne_depth() const { return throne_select_depth_; }
-  void increment_throne_depth() { ++throne_select_depth_; }
-  void decrement_throne_depth() { if (throne_select_depth_ > 0) --throne_select_depth_; }
-  // Begin a new selection chain and attach the handler.
-  void BeginSelection(DominionState& state, int player);
-  // Increment depth and begin selection.
-  void StartChain(DominionState& state, int player);
-  // Decrement depth and either finish or continue selection.
-  void ContinueOrFinish(DominionState& state, int player);
-  // Finish current selection effect.
-  void FinishSelection(DominionState& state, int player);
-private:
-  int throne_select_depth_ = 0;
-};
 
 // Selection initialization helpers are provided as Card static methods.
 
@@ -243,7 +123,7 @@ public:
     void Play(DominionState& state, int player) const;
 
     // Helper handlers for effect chains.
-    static void InitHandSelection(DominionState& state, int player, HandSelectionEffectNode* node, PendingChoice choice);
+    static void InitHandSelection(DominionState& state, int player, EffectNode* node, PendingChoice choice);
     static void InitBoardSelection(DominionState& state, int player);
 
     // Generic helper to collapse repeated hand-selection logic (ascending original index).

@@ -28,13 +28,11 @@ void ChapelCard::applyEffect(DominionState& state, int player) const {
   ps.effect_queue.clear();
   {
     std::unique_ptr<EffectNode> n(new ChapelEffectNode());
-    auto* node = dynamic_cast<HandSelectionEffectNode*>(n.get());
     ps.effect_queue.push_back(std::move(n));
-    Card::InitHandSelection(state, player, node, PendingChoice::TrashUpToCardsFromHand);
+    Card::InitHandSelection(state, player, ps.effect_queue.front().get(), PendingChoice::TrashUpToCardsFromHand);
   }
   ps.effect_queue.front()->on_action = ChapelCard::ChapelHandTrashHandler;
 }
 
 }  // namespace dominion
 }  // namespace open_spiel
-

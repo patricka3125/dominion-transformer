@@ -36,11 +36,11 @@ void MilitiaCard::applyEffect(DominionState& state, int player) const {
     p_opp.effect_queue.clear();
     {
       std::unique_ptr<EffectNode> n(new MilitiaEffectNode());
-      auto* m = dynamic_cast<MilitiaEffectNode*>(n.get());
-      if (m) m->set_target_hand_size(3);
       p_opp.effect_queue.push_back(std::move(n));
+      auto* hs = p_opp.effect_queue.front()->hand_selection();
+      if (hs) hs->set_target_hand_size(3);
     }
-    Card::InitHandSelection(state, opp, dynamic_cast<HandSelectionEffectNode*>(p_opp.effect_queue.front().get()), PendingChoice::DiscardUpToCardsFromHand);
+    Card::InitHandSelection(state, opp, p_opp.effect_queue.front().get(), PendingChoice::DiscardUpToCardsFromHand);
     p_opp.effect_queue.front()->on_action = MilitiaCard::MilitiaOpponentDiscardHandler;
     state.current_player_ = opp;
   }
@@ -48,4 +48,3 @@ void MilitiaCard::applyEffect(DominionState& state, int player) const {
 
 }  // namespace dominion
 }  // namespace open_spiel
-

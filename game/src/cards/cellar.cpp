@@ -17,8 +17,9 @@ bool CellarCard::CellarHandSelectHandler(DominionState& st, int pl, Action actio
     auto& p2 = st2.player_states_[pl2];
     int draw_n = 0;
     if (!p2.effect_queue.empty()) {
-      auto* node = dynamic_cast<HandSelectionEffectNode*>(p2.effect_queue.front().get());
-      if (node) draw_n = node->selection_count();
+      auto* node = p2.effect_queue.front().get();
+      auto* hs = node ? node->hand_selection() : nullptr;
+      if (hs) draw_n = hs->selection_count_value();
     }
     st2.DrawCardsFor(pl2, draw_n);
   };
@@ -37,13 +38,11 @@ void CellarCard::applyEffect(DominionState& state, int player) const {
   ps.effect_queue.clear();
   {
     std::unique_ptr<EffectNode> n(new CellarEffectNode());
-    auto* node = dynamic_cast<HandSelectionEffectNode*>(n.get());
     ps.effect_queue.push_back(std::move(n));
-    Card::InitHandSelection(state, player, node, PendingChoice::DiscardUpToCardsFromHand);
+    Card::InitHandSelection(state, player, ps.effect_queue.front().get(), PendingChoice::DiscardUpToCardsFromHand);
   }
   ps.effect_queue.front()->on_action = CellarCard::CellarHandSelectHandler;
 }
 
 }  // namespace dominion
 }  // namespace open_spiel
-
