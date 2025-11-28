@@ -40,10 +40,18 @@ void RunChapelTests() {
   // Play Chapel (last in hand).
   ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Chapel)));
 
-  // Trash four cards via successive hand selections.
-  for (int k = 0; k < 4; ++k) {
+  // Trash three cards stepwise, assert effect still pending.
+  for (int k = 0; k < 3; ++k) {
     ds->ApplyAction(open_spiel::dominion::ActionIds::TrashHandSelect(0));
+    auto la_mid = ds->LegalActions();
+    bool still_pending = false;
+    for (auto a : la_mid) {
+      if (a == open_spiel::dominion::ActionIds::TrashHandSelect(0)) { still_pending = true; break; }
+    }
+    SPIEL_CHECK_TRUE(still_pending);
   }
+  // Trash fourth card: effect resolves fully.
+  ds->ApplyAction(open_spiel::dominion::ActionIds::TrashHandSelect(0));
 
   // After trashing 4, effect ends automatically and no cards were added to discard.
   SPIEL_CHECK_EQ(DiscardSize(ds, 0), discard_before);
@@ -52,4 +60,3 @@ void RunChapelTests() {
 }
 
 } } // namespace open_spiel::dominion
-

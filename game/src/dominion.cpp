@@ -178,7 +178,8 @@ DominionState::DominionState(std::shared_ptr<const Game> game, const json &j)
   for (int p = 0; p < kNumPlayers; ++p) {
     if (p < static_cast<int>(contents.player_states.size())) {
       json pj = contents.player_states[p];
-      player_states_[p].LoadFromJson(pj);
+      DominionPlayerStateStruct ss(pj.dump());
+      player_states_[p].LoadFromStruct(ss);
     } else {
       // Leave as default-initialized; ensure obs_state is set.
       player_states_[p].obs_state = std::make_unique<ObservationState>(player_states_[p].hand_counts_, player_states_[p].deck_, player_states_[p].discard_counts_);
@@ -477,9 +478,6 @@ void DominionState::DoApplyAction(Action action_id) {
     bool consumed =
         ps.effect_queue.front()->on_action(*this, current_player_, action_id);
     if (consumed) {
-      if (ps.pending_choice == PendingChoice::None && !ps.effect_queue.empty()) {
-        ps.effect_queue.pop_front();
-      }
       MaybeAutoAdvanceToBuyPhase();
       return;
     }

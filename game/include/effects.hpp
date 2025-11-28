@@ -5,6 +5,7 @@
 #include <functional>
 
 #include "open_spiel/spiel.h"
+#include "open_spiel/json/include/nlohmann/json.hpp"
 
 namespace open_spiel {
 namespace dominion {
@@ -171,6 +172,26 @@ public:
 private:
   GainFromBoardStruct gain_;
 };
+
+struct EffectNodeStructContents {
+  int kind = 0;
+  int hand_target_hand_size = 0;
+  int hand_last_selected_original_index = -1;
+  int hand_selection_count = 0;
+  int gain_max_cost = 0;
+  int throne_select_depth = 0;
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE(EffectNodeStructContents,
+                                 kind,
+                                 hand_target_hand_size,
+                                 hand_last_selected_original_index,
+                                 hand_selection_count,
+                                 gain_max_cost,
+                                 throne_select_depth)
+};
+
+EffectNodeStructContents EffectNodeToStruct(const EffectNode& node);
+std::unique_ptr<EffectNode> EffectNodeFromStruct(const EffectNodeStructContents& s,
+                                                 PendingChoice pending_choice);
 
 } // namespace dominion
 } // namespace open_spiel

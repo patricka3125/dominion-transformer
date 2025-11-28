@@ -86,6 +86,7 @@ bool Card::GenericHandSelectionHandler(
     if (on_finish) on_finish(st, pl);
     p.ClearDiscardSelection();
     p.pending_choice = PendingChoice::None;
+    if (!p.effect_queue.empty()) p.effect_queue.pop_front();
     return true;
   }
   // Handle selecting a hand index.
@@ -107,6 +108,7 @@ bool Card::GenericHandSelectionHandler(
         if (on_finish) on_finish(st, pl);
         p.ClearDiscardSelection();
         p.pending_choice = PendingChoice::None;
+        if (!p.effect_queue.empty()) p.effect_queue.pop_front();
       }
     }
     return true;
@@ -132,6 +134,7 @@ bool Card::GainFromBoardHandler(DominionState& st, int pl, Action action_id) {
       st.player_states_[pl].discard_counts_[j] += 1;
       st.supply_piles_[j] -= 1;
       p.pending_choice = PendingChoice::None;
+      if (!p.effect_queue.empty()) p.effect_queue.pop_front();
       return true;
     }
   }
