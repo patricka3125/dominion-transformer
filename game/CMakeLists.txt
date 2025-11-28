@@ -86,6 +86,29 @@ find_library(OPEN_SPIEL_LIB open_spiel
     ${OPEN_SPIEL_INCLUDE_DIR}/../build 
     ${OPEN_SPIEL_INCLUDE_DIR}/build/open_spiel)
 if (OPEN_SPIEL_LIB)
+  set(LOCAL_OSP_TESTS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../open_spiel/tests)
+  add_executable(dominion_console_play
+      src/dominion_console_play.cpp
+      ${LOCAL_OSP_TESTS_DIR}/console_play_test.cc
+  )
+  target_link_libraries(dominion_console_play
+      dominion_cpp_game
+      ${OPEN_SPIEL_LIB}
+  )
+  target_include_directories(dominion_console_play PUBLIC
+      ${CMAKE_CURRENT_SOURCE_DIR}/include
+      ${OPEN_SPIEL_INCLUDE_DIR}
+      ${CMAKE_CURRENT_SOURCE_DIR}/../open_spiel
+  )
+  if (ABSL_INCLUDE_DIR)
+    target_include_directories(dominion_console_play PUBLIC ${ABSL_INCLUDE_DIR})
+  endif()
+  if (JSON_INCLUDE_DIR)
+    target_include_directories(dominion_console_play PUBLIC ${JSON_INCLUDE_DIR})
+  endif()
+  if (APPLE)
+    target_link_options(dominion_console_play PRIVATE -Wl,-force_load,$<TARGET_FILE:dominion_cpp_game>)
+  endif()
   add_executable(dominion_cards_test
       src/cards_test.cpp
       src/cards/chapel_test.cpp

@@ -161,9 +161,16 @@ void RunCellarJsonRoundTrip() {
   SPIEL_CHECK_TRUE(ds_copy != nullptr);
   auto la = ds_copy->LegalActions();
   bool has_finish = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::DiscardHandSelectFinish()) != la.end();
-  bool can_discard = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::DiscardHandSelect(0)) != la.end();
+  bool can_discard_any = false;
+  for (auto a : la) {
+    if (a >= open_spiel::dominion::ActionIds::DiscardHandBase() &&
+        a < open_spiel::dominion::ActionIds::DiscardHandBase() + kNumSupplyPiles) {
+      can_discard_any = true;
+      break;
+    }
+  }
   SPIEL_CHECK_TRUE(has_finish);
-  SPIEL_CHECK_TRUE(can_discard);
+  SPIEL_CHECK_TRUE(can_discard_any);
 }
 
 } } // namespace open_spiel::dominion

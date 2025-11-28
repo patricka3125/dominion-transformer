@@ -53,7 +53,7 @@ static bool CanSelectHandIndexForNode(const DominionState& st, int pl,
     const Card& spec = GetCardSpec(static_cast<CardName>(j));
     return std::find(spec.types_.begin(), spec.types_.end(), CardType::ACTION) != spec.types_.end();
   }
-  if (hs->last_selected_original_index_value() >= 0 && j < hs->last_selected_original_index_value()) return false;
+  if (node->enforce_ascending && hs->last_selected_original_index_value() >= 0 && j < hs->last_selected_original_index_value()) return false;
   return true;
 }
 
@@ -171,7 +171,7 @@ static const std::map<CardName, std::unique_ptr<Card>>& CardRegistry() {
     reg.emplace(CardName::CARD_Mine,       std::make_unique<Card>(Card{CardName::CARD_Mine,        "Mine",      {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
     reg.emplace(CardName::CARD_Moat,       std::make_unique<Card>(Card{CardName::CARD_Moat,        "Moat",      {CardType::ACTION},   2, 0, 0, 0, 2, 0}));
     reg.emplace(CardName::CARD_Artisan,    std::make_unique<Card>(Card{CardName::CARD_Artisan,     "Artisan",   {CardType::ACTION},   6, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Militia,    std::make_unique<MilitiaCard>(MilitiaCard{CardName::CARD_Militia,     "Militia",   {CardType::ACTION, CardType::ATTACK},   4, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Militia,    std::make_unique<MilitiaCard>(MilitiaCard{CardName::CARD_Militia,     "Militia",   {CardType::ACTION, CardType::ATTACK},   4, 2, 0, 0, 0, 0}));
     reg.emplace(CardName::CARD_Witch,      std::make_unique<WitchCard>(WitchCard{CardName::CARD_Witch,       "Witch",     {CardType::ACTION, CardType::ATTACK},   5, 0, 0, 0, 2, 0}));
     reg.emplace(CardName::CARD_Vassal,     std::make_unique<Card>(Card{CardName::CARD_Vassal,      "Vassal",    {CardType::ACTION},   3, 0, 0, 0, 0, 0}));
     reg.emplace(CardName::CARD_Poacher,    std::make_unique<Card>(Card{CardName::CARD_Poacher,     "Poacher",   {CardType::ACTION},   4, 1, 0, 1, 1, 0}));
@@ -239,6 +239,8 @@ std::vector<Action> PendingEffectLegalActions(const DominionState& state, int pl
         actions.push_back(use_trash ? ActionIds::TrashHandSelectFinish() : ActionIds::DiscardHandSelectFinish());
       }
     }
+    // Defensive assertion: during active discard/trash/play effects, legals must not be empty.
+    SPIEL_CHECK_FALSE(actions.empty());
   }
   if (ps.pending_choice == PendingChoice::SelectUpToCardsFromBoard) {
     const EffectNode* node = nullptr;

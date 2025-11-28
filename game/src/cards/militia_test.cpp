@@ -32,14 +32,21 @@ void RunMilitiaTests() {
   SPIEL_CHECK_EQ(ds->CurrentPlayer(), 1);
   {
     auto la = ds->LegalActions();
-    bool has_finish = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::DiscardHandSelectFinish()) != la.end();
-    SPIEL_CHECK_FALSE(has_finish);
+    // Only discard selects are legal.
+    for (auto a : la) {
+      bool is_discard = (a >= open_spiel::dominion::ActionIds::DiscardHandBase() &&
+                         a < open_spiel::dominion::ActionIds::DiscardHandBase() + kNumSupplyPiles);
+      SPIEL_CHECK_TRUE(is_discard);
+    }
   }
   ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0));
   {
     auto la = ds->LegalActions();
-    bool has_finish = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::DiscardHandSelectFinish()) != la.end();
-    SPIEL_CHECK_FALSE(has_finish);
+    for (auto a : la) {
+      bool is_discard = (a >= open_spiel::dominion::ActionIds::DiscardHandBase() &&
+                         a < open_spiel::dominion::ActionIds::DiscardHandBase() + kNumSupplyPiles);
+      SPIEL_CHECK_TRUE(is_discard);
+    }
   }
   ds->ApplyAction(open_spiel::dominion::ActionIds::DiscardHandSelect(0));
 
@@ -71,8 +78,11 @@ void RunMilitiaJsonRoundTrip() {
   // Current player remains opponent; finish still not legal.
   SPIEL_CHECK_EQ(ds_copy->CurrentPlayer(), 1);
   auto la = ds_copy->LegalActions();
-  bool has_finish = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::DiscardHandSelectFinish()) != la.end();
-  SPIEL_CHECK_FALSE(has_finish);
+  for (auto a : la) {
+    bool is_discard = (a >= open_spiel::dominion::ActionIds::DiscardHandBase() &&
+                       a < open_spiel::dominion::ActionIds::DiscardHandBase() + kNumSupplyPiles);
+    SPIEL_CHECK_TRUE(is_discard);
+  }
 }
 
 } } // namespace open_spiel::dominion
