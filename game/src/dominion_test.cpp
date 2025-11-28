@@ -5,6 +5,7 @@
 
 #include "dominion.hpp"
 #include "actions.hpp"
+#include "effects.hpp"
 
 using open_spiel::LoadGame;
 using open_spiel::State;
@@ -79,6 +80,9 @@ static void TestEndBuySwitchesPlayerAndTurnIncrements();
 static void TestAutoEndOnLastBuy();
 static void TestDominionStateJsonRoundTrip();
 static void TestDominionStateSerializeDeserialize();
+static void TestEffectQueueJsonRoundTrip();
+static void TestThroneRoomChainJsonRoundTrip();
+static void TestEffectQueueSerializeDeserialize();
 
 // Gardens: 1 VP per Gardens for every 10 total cards (deck+discard+hand).
 static void TestGardensVP() {
@@ -252,6 +256,9 @@ int main() {
   TestInitialConstructorState();
   TestDominionStateJsonRoundTrip();
   TestDominionStateSerializeDeserialize();
+  TestEffectQueueJsonRoundTrip();
+  TestThroneRoomChainJsonRoundTrip();
+  TestEffectQueueSerializeDeserialize();
   return 0;
 }
 // Verify EndBuy switches to next player and increments turn number (1-based).
@@ -323,4 +330,89 @@ static void TestDominionStateSerializeDeserialize() {
   auto* ds_copy = dynamic_cast<DominionState*>(state_copy.get());
   SPIEL_CHECK_TRUE(ds_copy != nullptr);
   SPIEL_CHECK_EQ(ds->ToString(), ds_copy->ToString());
+}
+
+static int PendingChoiceVal(DominionState* s, int player) {
+  return static_cast<int>(s->player_states_[player].pending_choice);
+}
+static size_t EffectQueueSize(DominionState* s, int player) {
+  return s->player_states_[player].effect_queue.size();
+}
+static const open_spiel::dominion::EffectNode* FrontEffectNode(DominionState* s, int player) {
+  if (s->player_states_[player].effect_queue.empty()) return nullptr;
+  return s->player_states_[player].effect_queue.front().get();
+}
+
+static void TestEffectQueueJsonRoundTrip() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  GetCardSpec(open_spiel::dominion::CardName::CARD_Workshop).applyEffect(*ds, 0);
+  SPIEL_CHECK_EQ(EffectQueueSize(ds, 0), 1);
+  SPIEL_CHECK_EQ(PendingChoiceVal(ds, 0), static_cast<int>(open_spiel::dominion::PendingChoice::SelectUpToCardsFromBoard));
+  const open_spiel::dominion::EffectNode* n = FrontEffectNode(ds, 0);
+  SPIEL_CHECK_TRUE(n != nullptr);
+  const auto* gs = n->gain_from_board();
+  SPIEL_CHECK_TRUE(gs != nullptr);
+  SPIEL_CHECK_EQ(gs->max_cost, 4);
+
+  std::string json_str = ds->ToJson();
+  nlohmann::json j = nlohmann::json::parse(json_str);
+  std::unique_ptr<State> state_copy = game->NewInitialState(j);
+  auto* ds_copy = dynamic_cast<DominionState*>(state_copy.get());
+  SPIEL_CHECK_TRUE(ds_copy != nullptr);
+  SPIEL_CHECK_EQ(EffectQueueSize(ds_copy, 0), 1);
+  SPIEL_CHECK_EQ(PendingChoiceVal(ds_copy, 0), static_cast<int>(open_spiel::dominion::PendingChoice::SelectUpToCardsFromBoard));
+  const open_spiel::dominion::EffectNode* n2 = FrontEffectNode(ds_copy, 0);
+  SPIEL_CHECK_TRUE(n2 != nullptr);
+  const auto* gs2 = n2->gain_from_board();
+  SPIEL_CHECK_TRUE(gs2 != nullptr);
+  SPIEL_CHECK_EQ(gs2->max_cost, 4);
+  SPIEL_CHECK_TRUE(ds->LegalActions() == ds_copy->LegalActions());
+}
+
+static void TestThroneRoomChainJsonRoundTrip() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  GetCardSpec(open_spiel::dominion::CardName::CARD_ThroneRoom).applyEffect(*ds, 0);
+  SPIEL_CHECK_EQ(EffectQueueSize(ds, 0), 1);
+  SPIEL_CHECK_EQ(PendingChoiceVal(ds, 0), static_cast<int>(open_spiel::dominion::PendingChoice::PlayActionFromHand));
+  const open_spiel::dominion::EffectNode* n = FrontEffectNode(ds, 0);
+  const auto* tr = dynamic_cast<const open_spiel::dominion::ThroneRoomEffectNode*>(n);
+  SPIEL_CHECK_TRUE(tr != nullptr);
+  SPIEL_CHECK_TRUE(tr->throne_depth() > 0);
+
+  std::string json_str = ds->ToJson();
+  nlohmann::json j = nlohmann::json::parse(json_str);
+  std::unique_ptr<State> state_copy = game->NewInitialState(j);
+  auto* ds_copy = dynamic_cast<DominionState*>(state_copy.get());
+  SPIEL_CHECK_TRUE(ds_copy != nullptr);
+  SPIEL_CHECK_EQ(EffectQueueSize(ds_copy, 0), 1);
+  SPIEL_CHECK_EQ(PendingChoiceVal(ds_copy, 0), static_cast<int>(open_spiel::dominion::PendingChoice::PlayActionFromHand));
+  const open_spiel::dominion::EffectNode* n2 = FrontEffectNode(ds_copy, 0);
+  const auto* tr2 = dynamic_cast<const open_spiel::dominion::ThroneRoomEffectNode*>(n2);
+  SPIEL_CHECK_TRUE(tr2 != nullptr);
+  SPIEL_CHECK_TRUE(tr2->throne_depth() > 0);
+}
+
+static void TestEffectQueueSerializeDeserialize() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  GetCardSpec(open_spiel::dominion::CardName::CARD_Workshop).applyEffect(*ds, 0);
+  SPIEL_CHECK_EQ(EffectQueueSize(ds, 0), 1);
+
+  std::string serialized = ds->Serialize();
+  std::unique_ptr<State> state_copy = game->DeserializeState(serialized);
+  auto* ds_copy = dynamic_cast<DominionState*>(state_copy.get());
+  SPIEL_CHECK_TRUE(ds_copy != nullptr);
+  SPIEL_CHECK_EQ(EffectQueueSize(ds_copy, 0), 1);
+  SPIEL_CHECK_EQ(PendingChoiceVal(ds_copy, 0), static_cast<int>(open_spiel::dominion::PendingChoice::SelectUpToCardsFromBoard));
 }

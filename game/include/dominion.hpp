@@ -80,9 +80,10 @@ struct DominionPlayerStructContents {
   std::array<int, kNumSupplyPiles> hand_counts;
   std::array<int, kNumSupplyPiles> discard_counts;
   int pending_choice;
+  std::vector<EffectNodeStructContents> effect_queue;
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(
       DominionPlayerStructContents, deck, hand_counts, discard_counts,
-      pending_choice)
+      pending_choice, effect_queue)
 };
 
 struct DominionStateStructContents {
@@ -158,27 +159,27 @@ struct PlayerState {
     }
     obs_state = std::make_unique<ObservationState>(hand_counts_, deck_, discard_counts_);
   }
-  // Construct from json contents.
   explicit PlayerState(const nlohmann::json &json) {
-    LoadFromJson(json);
+    DominionPlayerStateStruct ss(json.dump());
+    LoadFromStruct(ss);
   }
 
-  // Populate this player state from json contents in-place.
-  void LoadFromJson(const nlohmann::json &json) {
+  void LoadFromStruct(const DominionPlayerStateStruct &ss) {
     deck_.clear();
     hand_counts_.fill(0);
     discard_counts_.fill(0);
     history_.clear();
     pending_choice = PendingChoice::None;
     effect_queue.clear();
-    // Parse structured player contents.
-    DominionPlayerStructContents contents = json.get<DominionPlayerStructContents>();
-    deck_.reserve(contents.deck.size());
-    for (int v : contents.deck) deck_.push_back(static_cast<CardName>(v));
-    hand_counts_ = contents.hand_counts;
-    discard_counts_ = contents.discard_counts;
-    // history_ is not serialized; leave empty on load.
-    pending_choice = static_cast<PendingChoice>(contents.pending_choice);
+    deck_.reserve(ss.deck.size());
+    for (int v : ss.deck) deck_.push_back(static_cast<CardName>(v));
+    hand_counts_ = ss.hand_counts;
+    discard_counts_ = ss.discard_counts;
+    pending_choice = static_cast<PendingChoice>(ss.pending_choice);
+    for (const auto &ens : ss.effect_queue) {
+      auto node = EffectNodeFromStruct(ens, pending_choice);
+      if (node) effect_queue.push_back(std::move(node));
+    }
     obs_state = std::make_unique<ObservationState>(hand_counts_, deck_, discard_counts_);
   }
 
@@ -192,6 +193,10 @@ struct PlayerState {
     contents.discard_counts = discard_counts_;
     // history_ not included in JSON struct.
     contents.pending_choice = static_cast<int>(pending_choice);
+    contents.effect_queue.clear();
+    for (const auto &node_ptr : effect_queue) {
+      if (node_ptr) contents.effect_queue.push_back(EffectNodeToStruct(*node_ptr));
+    }
     auto ss = std::make_unique<DominionPlayerStateStruct>();
     static_cast<DominionPlayerStructContents&>(*ss) = contents;
     return ss;

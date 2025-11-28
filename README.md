@@ -16,7 +16,6 @@ bash -lc 'cmake --build /path/to/open_spiel/build -j 8 && source /path/to/open_s
 
 ## TODO (in order):
 * Represent cards and card effects as fixed feature embeddings + card effect embeddings.
-* Need to have json serializability for effect nodes in player effect queue.
 * Need to implement refining the data that is returned by Information and Observation state.
 * Design observation state with MLP NN architecture in mind.
 

@@ -36,13 +36,15 @@ static T* FrontEffect(DominionState& state, int player) {
   return dynamic_cast<T*>(q.front().get());
 }
 
-// Centralized gating for hand index selection based on the current effect node.
-// - Enforces ascending original-index selection unless Throne chain is active.
-// - Throne chains allow selecting only ACTION cards regardless of index.
+// Returns whether a hand index `j` can be selected under the current front
+// effect node. Enforces ascending original-index selection unless a Throne
+// Room chain is active, in which case only ACTION cards are selectable.
 static bool CanSelectHandIndexForNode(const DominionState& st, int pl,
-                                      const HandSelectionEffectNode* node,
+                                      const EffectNode* node,
                                       int j) {
   if (!node) return false;
+  const auto* hs = node->hand_selection();
+  if (!hs) return false;
   const auto& p = st.player_states_[pl];
   if (j < 0 || j >= kNumSupplyPiles) return false;
   if (p.hand_counts_[j] <= 0) return false;
@@ -51,12 +53,14 @@ static bool CanSelectHandIndexForNode(const DominionState& st, int pl,
     const Card& spec = GetCardSpec(static_cast<CardName>(j));
     return std::find(spec.types_.begin(), spec.types_.end(), CardType::ACTION) != spec.types_.end();
   }
-  if (node->last_selected_original_index() >= 0 && j < node->last_selected_original_index()) return false;
+  if (hs->last_selected_original_index_value() >= 0 && j < hs->last_selected_original_index_value()) return false;
   return true;
 }
 
 // Generic hand-selection processor: enforces ascending original-index selection
 // and handles finish conditions. Per-card effects are provided via callbacks.
+// Shared hand-selection processor used by Cellar/Chapel/Militia and parts of
+// Throne flows. Applies ascending-index constraint and finish conditions.
 bool Card::GenericHandSelectionHandler(
     DominionState& st, int pl, Action action_id,
     bool allow_finish,
@@ -69,18 +73,20 @@ bool Card::GenericHandSelectionHandler(
   auto& p = st.player_states_[pl];
   if (p.pending_choice != PendingChoice::DiscardUpToCardsFromHand &&
       p.pending_choice != PendingChoice::TrashUpToCardsFromHand) return false;
-  // Access current effect node state
-  HandSelectionEffectNode* node = nullptr;
+  EffectNode* node = nullptr;
   if (!p.effect_queue.empty()) {
-    node = dynamic_cast<HandSelectionEffectNode*>(p.effect_queue.front().get());
+    node = p.effect_queue.front().get();
   }
   SPIEL_CHECK_FALSE(node == nullptr);
+  auto* hs = node->hand_selection();
+  SPIEL_CHECK_FALSE(hs == nullptr);
   // Optional early finish.
   if (action_id == select_finish) {
     if (!allow_finish) return false;
     if (on_finish) on_finish(st, pl);
     p.ClearDiscardSelection();
     p.pending_choice = PendingChoice::None;
+    if (!p.effect_queue.empty()) p.effect_queue.pop_front();
     return true;
   }
   // Handle selecting a hand index.
@@ -90,18 +96,19 @@ bool Card::GenericHandSelectionHandler(
     SPIEL_CHECK_TRUE(j >= 0 && j < kNumSupplyPiles);
     if (CanSelectHandIndexForNode(st, pl, node, j)) {
       on_select(st, pl, j);
-      node->set_last_selected_original_index(j);
-      node->increment_selection_count();
+      hs->set_last_selected_original_index(j);
+      hs->increment_selection_count();
       bool should_finish = false;
-      if (max_select_count >= 0 && node->selection_count() >= max_select_count) should_finish = true;
-      if (finish_on_target_hand_size && node->target_hand_size() > 0) {
+      if (max_select_count >= 0 && hs->selection_count_value() >= max_select_count) should_finish = true;
+      if (finish_on_target_hand_size && hs->target_hand_size_value() > 0) {
         int hand_sz = 0; for (int k = 0; k < kNumSupplyPiles; ++k) hand_sz += p.hand_counts_[k];
-        if (hand_sz <= node->target_hand_size()) should_finish = true;
+        if (hand_sz <= hs->target_hand_size_value()) should_finish = true;
       }
       if (should_finish) {
         if (on_finish) on_finish(st, pl);
         p.ClearDiscardSelection();
         p.pending_choice = PendingChoice::None;
+        if (!p.effect_queue.empty()) p.effect_queue.pop_front();
       }
     }
     return true;
@@ -109,195 +116,34 @@ bool Card::GenericHandSelectionHandler(
   return false;
 }
 
-// Shared helper: handles board gain selection based on pending_gain_max_cost.
+// Shared helper: handles board gain selection based on node's max_cost.
 bool Card::GainFromBoardHandler(DominionState& st, int pl, Action action_id) {
   auto& p = st.player_states_[pl];
   if (p.pending_choice != PendingChoice::SelectUpToCardsFromBoard) return false;
-  GainFromBoardEffectNode* node = FrontEffect<GainFromBoardEffectNode>(st, pl);
+  EffectNode* node = nullptr;
+  if (!p.effect_queue.empty()) node = p.effect_queue.front().get();
   SPIEL_CHECK_FALSE(node == nullptr);
+  auto* gs = node->gain_from_board();
+  SPIEL_CHECK_FALSE(gs == nullptr);
   if (action_id >= ActionIds::GainSelectBase() && action_id < ActionIds::GainSelectBase() + kNumSupplyPiles) {
     int j = static_cast<int>(action_id - ActionIds::GainSelectBase());
     SPIEL_CHECK_TRUE(j >= 0 && j < kNumSupplyPiles);
     SPIEL_CHECK_TRUE(st.supply_piles_[j] > 0);
     const Card& spec = GetCardSpec(static_cast<CardName>(j));
-    if (spec.cost_ <= node->max_cost()) {
+    if (spec.cost_ <= gs->max_cost) {
       st.player_states_[pl].discard_counts_[j] += 1;
       st.supply_piles_[j] -= 1;
       p.pending_choice = PendingChoice::None;
+      if (!p.effect_queue.empty()) p.effect_queue.pop_front();
       return true;
     }
   }
   return false;
-}
-
-// Remodel stage-1 helper: trash one card from hand and switch to board gain.
-bool RemodelCard::RemodelTrashFromHand(DominionState& st, int pl, Action action_id) {
-  auto& p = st.player_states_[pl];
-  if (p.pending_choice != PendingChoice::TrashUpToCardsFromHand) return false;
-  // Allow early finish without trashing.
-  if (action_id == ActionIds::TrashHandSelectFinish()) return true;
-  HandSelectionEffectNode* node = FrontEffect<HandSelectionEffectNode>(st, pl);
-  if (action_id >= ActionIds::TrashHandBase() && action_id < ActionIds::TrashHandBase() + kNumSupplyPiles) {
-    int j = static_cast<int>(action_id - ActionIds::TrashHandBase());
-    SPIEL_CHECK_TRUE(j >= 0 && j < kNumSupplyPiles);
-    SPIEL_CHECK_TRUE(p.hand_counts_[j] > 0);
-    SPIEL_CHECK_TRUE(node == nullptr || node->last_selected_original_index() < 0 || j >= node->last_selected_original_index());
-    const Card& selected = GetCardSpec(static_cast<CardName>(j));
-    int cap = selected.cost_ + 2;
-    // Trash selection: remove from hand.
-    p.hand_counts_[j] -= 1;
-    if (node) node->set_last_selected_original_index(j);
-    // Switch to board gain stage: replace current front effect with gain-from-board.
-    ReplaceFrontEffect<GainFromBoardEffectNode>(st, pl, cap);
-    Card::InitBoardSelection(st, pl);
-    st.player_states_[pl].effect_queue.front()->on_action = Card::GainFromBoardHandler;
-    return true;
-  }
-  return false;
-}
-
-// Cellar handler: select any number of cards in ascending original index; finish draws equal to number discarded.
-bool CellarCard::CellarHandSelectHandler(DominionState& st, int pl, Action action_id) {
-  // Discard any number; draw equal to discards on finish.
-  auto on_select = [](DominionState& st2, int pl2, int j) {
-    auto& p2 = st2.player_states_[pl2];
-    p2.discard_counts_[j] += 1;
-    p2.hand_counts_[j] -= 1;
-  };
-  auto on_finish = [](DominionState& st2, int pl2) {
-    auto& p2 = st2.player_states_[pl2];
-    int draw_n = 0;
-    if (!p2.effect_queue.empty()) {
-      auto* node = dynamic_cast<HandSelectionEffectNode*>(p2.effect_queue.front().get());
-      if (node) draw_n = node->selection_count();
-    }
-    st2.DrawCardsFor(pl2, draw_n);
-  };
-  return GenericHandSelectionHandler(st, pl, action_id,
-                                     /*allow_finish=*/true,
-                                     /*max_select_count=*/-1,
-                                     /*finish_on_target_hand_size=*/false,
-                                     ActionIds::DiscardHandBase(),
-                                     ActionIds::DiscardHandSelectFinish(),
-                                     on_select,
-                                     on_finish);
-}
-
-// Chapel handler: trash up to four cards from hand; finish early allowed.
-bool ChapelCard::ChapelHandTrashHandler(DominionState& st, int pl, Action action_id) {
-  // Trash up to 4; finish early allowed.
-  auto on_select = [](DominionState& st2, int pl2, int j) {
-    auto& p2 = st2.player_states_[pl2];
-    if (p2.hand_counts_[j] > 0) p2.hand_counts_[j] -= 1;
-  };
-  auto on_finish = [](DominionState&, int) {};
-  return GenericHandSelectionHandler(st, pl, action_id,
-                                     /*allow_finish=*/true,
-                                     /*max_select_count=*/4,
-                                     /*finish_on_target_hand_size=*/false,
-                                     ActionIds::TrashHandBase(),
-                                     ActionIds::TrashHandSelectFinish(),
-                                     on_select,
-                                     on_finish);
-}
-
-// Militia handler: opponent discards down to 3 cards, then turn returns to attacker.
-bool MilitiaCard::MilitiaOpponentDiscardHandler(DominionState& st, int pl, Action action_id) {
-  // Opponent discards down to target hand size (3); finish only at threshold and return turn.
-  auto on_select = [](DominionState& st2, int pl2, int j) {
-    auto& p2 = st2.player_states_[pl2];
-    if (p2.hand_counts_[j] > 0) {
-      p2.discard_counts_[j] += 1;
-      p2.hand_counts_[j] -= 1;
-    }
-  };
-  auto on_finish = [](DominionState& st2, int pl2) {
-    st2.current_player_ = 1 - pl2;
-  };
-  return GenericHandSelectionHandler(st, pl, action_id,
-                                     /*allow_finish=*/false,
-                                     /*max_select_count=*/-1,
-                                     /*finish_on_target_hand_size=*/true,
-                                     ActionIds::DiscardHandBase(),
-                                     ActionIds::DiscardHandSelectFinish(),
-                                     on_select,
-                                     on_finish);
-}
-
-// Witch attack effect: each opponent gains a Curse to their discard if available.
-void WitchCard::WitchAttackGiveCurse(DominionState& st, int player) {
-  int opp = 1 - player;
-  int curse_idx = static_cast<int>(CardName::CARD_Curse);
-  SPIEL_CHECK_TRUE(curse_idx >= 0 && curse_idx < kNumSupplyPiles);
-  if (st.supply_piles_[curse_idx] > 0) {
-    st.player_states_[opp].discard_counts_[curse_idx] += 1;
-    st.supply_piles_[curse_idx] -= 1;
-  }
-}
-
-void ThroneRoomEffectNode::BeginSelection(DominionState& state, int player) {
-  Card::InitHandSelection(state, player, this, PendingChoice::PlayActionFromHand);
-  state.player_states_[player].effect_queue.front()->on_action = ThroneRoomCard::ThroneRoomSelectActionHandler;
-}
-
-void ThroneRoomEffectNode::StartChain(DominionState& state, int player) {
-  increment_throne_depth();
-  BeginSelection(state, player);
-}
-
-void ThroneRoomEffectNode::ContinueOrFinish(DominionState& state, int player) {
-  decrement_throne_depth();
-  if (throne_depth() == 0) {
-    FinishSelection(state, player);
-  } else {
-    BeginSelection(state, player);
-  }
-}
-
-void ThroneRoomEffectNode::FinishSelection(DominionState& state, int player) {
-  auto& p = state.player_states_[player];
-  p.ClearDiscardSelection();
-  p.pending_choice = PendingChoice::None;
 }
 
 // Throne Room selection: choose one action card from hand; first play executes
 // grants and effect without spending an action; second play re-applies effect only.
-bool ThroneRoomCard::ThroneRoomSelectActionHandler(DominionState& st, int pl, Action action_id) {
-  auto& p = st.player_states_[pl];
-  if (p.pending_choice != PendingChoice::PlayActionFromHand) return false;
-  ThroneRoomEffectNode* node = FrontEffect<ThroneRoomEffectNode>(st, pl);
-  if (action_id == ActionIds::ThroneHandSelectFinish()) {
-    // No selection: do nothing, end effect.
-    if (node) node->FinishSelection(st, pl);
-    return true;
-  }
-  if (action_id >= 0 && action_id < ActionIds::MaxHandSize()) {
-    int j = static_cast<int>(action_id);
-    SPIEL_CHECK_TRUE(j >= 0 && j < kNumSupplyPiles);
-    SPIEL_CHECK_TRUE(p.hand_counts_[j] > 0);
-    SPIEL_CHECK_TRUE(node == nullptr || node->last_selected_original_index() < 0 || j >= node->last_selected_original_index());
-    CardName cn = static_cast<CardName>(j);
-    const Card& spec = GetCardSpec(cn);
-    // Must be an action card; ignore non-action selections.
-    if (std::find(spec.types_.begin(), spec.types_.end(), CardType::ACTION) == spec.types_.end()) {
-      return true;
-    }
-    // First play: move to play area, do standard grants, no action decrement here.
-    p.hand_counts_[j] -= 1;
-    st.play_area_.push_back(cn);
-    // If the selected card is another Throne Room, chain a new selection node for choosing an action.
-    if (cn == CardName::CARD_ThroneRoom) {
-      if (node) node->StartChain(st, pl);
-    } else {
-      // Otherwise, apply the card's own effect twice (Throne effect) and decrement depth once.
-      spec.Play(st, pl);
-      spec.Play(st, pl);
-      if (node) node->ContinueOrFinish(st, pl);
-    }
-    return true;
-  }
-  return false;
-}
+// ThroneRoom selection handler implemented in src/cards/throne_room.cpp
 // Card spec registry: base set subset sufficient for tests.
 static const std::map<CardName, std::unique_ptr<Card>>& CardRegistry() {
   static std::map<CardName, std::unique_ptr<Card>> reg;
@@ -363,74 +209,20 @@ void Card::Play(DominionState& state, int player) const {
   applyEffect(state, player);
 }
 
-// Derived effect implementations
-void CellarCard::applyEffect(DominionState& state, int player) const {
-  auto& ps = state.player_states_[player];
-  ps.effect_queue.clear();
-  auto* node = PushEffectNode<CellarEffectNode>(state, player);
-  Card::InitHandSelection(state, player, node, PendingChoice::DiscardUpToCardsFromHand);
-  ps.effect_queue.front()->on_action = CellarCard::CellarHandSelectHandler;
-}
-
-void WorkshopCard::applyEffect(DominionState& state, int player) const {
-  auto& ps = state.player_states_[player];
-  ps.effect_queue.clear();
-  auto* node = PushEffectNode<GainFromBoardEffectNode>(state, player, 4);
-  Card::InitBoardSelection(state, player);
-  ps.effect_queue.front()->on_action = Card::GainFromBoardHandler;
-}
-
-void RemodelCard::applyEffect(DominionState& state, int player) const {
-  auto& ps = state.player_states_[player];
-  ps.effect_queue.clear();
-  auto* node = PushEffectNode<RemodelTrashEffectNode>(state, player);
-  Card::InitHandSelection(state, player, node, PendingChoice::TrashUpToCardsFromHand);
-  ps.effect_queue.front()->on_action = RemodelCard::RemodelTrashFromHand;
-}
-
-void ChapelCard::applyEffect(DominionState& state, int player) const {
-  auto& ps = state.player_states_[player];
-  ps.effect_queue.clear();
-  auto* node = PushEffectNode<ChapelEffectNode>(state, player);
-  Card::InitHandSelection(state, player, node, PendingChoice::TrashUpToCardsFromHand);
-  ps.effect_queue.front()->on_action = ChapelCard::ChapelHandTrashHandler;
-}
-
-void MilitiaCard::applyEffect(DominionState& state, int player) const {
-  int opp = 1 - player;
-  auto& p_opp = state.player_states_[opp];
-  int opp_hand_sz = 0; for (int j=0;j<kNumSupplyPiles;++j) opp_hand_sz += p_opp.hand_counts_[j];
-  if (opp_hand_sz > 3) {
-    p_opp.effect_queue.clear();
-    auto* n = PushEffectNode<MilitiaEffectNode>(state, opp);
-    n->set_target_hand_size(3);
-    Card::InitHandSelection(state, opp, n, PendingChoice::DiscardUpToCardsFromHand);
-    p_opp.effect_queue.front()->on_action = MilitiaCard::MilitiaOpponentDiscardHandler;
-    state.current_player_ = opp;
-  }
-}
-
-void WitchCard::applyEffect(DominionState& state, int player) const {
-  WitchCard::WitchAttackGiveCurse(state, player);
-}
-
-void ThroneRoomCard::applyEffect(DominionState& state, int player) const {
-  auto& ps = state.player_states_[player];
-  ps.effect_queue.clear();
-  auto* node = PushEffectNode<ThroneRoomEffectNode>(state, player);
-  node->StartChain(state, player);
-}
-
-
+// Computes legal actions when an effect is pending at the queue front.
+// Hand-selection effects expose discard/trash/play actions; gain effects expose
+// legal gains filtered by max_cost and supply availability.
 std::vector<Action> PendingEffectLegalActions(const DominionState& state, int player) {
   std::vector<Action> actions;
   const auto& ps = state.player_states_[player];
   if (ps.pending_choice == PendingChoice::DiscardUpToCardsFromHand ||
       ps.pending_choice == PendingChoice::TrashUpToCardsFromHand ||
       ps.pending_choice == PendingChoice::PlayActionFromHand) {
-    const HandSelectionEffectNode* node = nullptr;
-    if (!ps.effect_queue.empty()) node = dynamic_cast<const HandSelectionEffectNode*>(ps.effect_queue.front().get());
+    const EffectNode* node = nullptr;
+    if (!ps.effect_queue.empty()) node = ps.effect_queue.front().get();
     if (!node) return actions;
+    const auto* hs = node->hand_selection();
+    if (!hs) return actions;
     if (ps.pending_choice == PendingChoice::PlayActionFromHand) {
       for (int j = 0; j < kNumSupplyPiles; ++j) {
         if (!CanSelectHandIndexForNode(state, player, node, j)) continue;
@@ -443,19 +235,21 @@ std::vector<Action> PendingEffectLegalActions(const DominionState& state, int pl
         if (!CanSelectHandIndexForNode(state, player, node, j)) continue;
         actions.push_back(use_trash ? ActionIds::TrashHandSelect(j) : ActionIds::DiscardHandSelect(j));
       }
-      if (node->target_hand_size() == 0) {
+      if (hs->target_hand_size_value() == 0) {
         actions.push_back(use_trash ? ActionIds::TrashHandSelectFinish() : ActionIds::DiscardHandSelectFinish());
       }
     }
   }
   if (ps.pending_choice == PendingChoice::SelectUpToCardsFromBoard) {
-    const GainFromBoardEffectNode* node = nullptr;
-    if (!ps.effect_queue.empty()) node = dynamic_cast<const GainFromBoardEffectNode*>(ps.effect_queue.front().get());
+    const EffectNode* node = nullptr;
+    if (!ps.effect_queue.empty()) node = ps.effect_queue.front().get();
     if (!node) return actions;
+    const auto* gs = node->gain_from_board();
+    if (!gs) return actions;
     for (int j = 0; j < kNumSupplyPiles; ++j) {
       if (state.supply_piles_[j] <= 0) continue;
       const Card& spec = GetCardSpec(static_cast<CardName>(j));
-      if (spec.cost_ <= node->max_cost()) {
+      if (spec.cost_ <= gs->max_cost) {
         actions.push_back(ActionIds::GainSelect(j));
       }
     }
@@ -464,10 +258,15 @@ std::vector<Action> PendingEffectLegalActions(const DominionState& state, int pl
   return actions;
 }
 
-void Card::InitHandSelection(DominionState& state, int player, HandSelectionEffectNode* node, PendingChoice choice) {
+// Initializes a hand-selection effect: sets PendingChoice and resets
+// effect-local selection counters when available on the node.
+void Card::InitHandSelection(DominionState& state, int player, EffectNode* node, PendingChoice choice) {
   auto& ps = state.player_states_[player];
   ps.pending_choice = choice;
-  if (node) node->reset_selection();
+  if (node) {
+    auto* hs = node->hand_selection();
+    if (hs) hs->reset_selection();
+  }
 }
 
 void Card::InitBoardSelection(DominionState& state, int player) {
