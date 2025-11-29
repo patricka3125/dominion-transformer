@@ -19,8 +19,9 @@ bash -lc 'cmake --build /path/to/open_spiel/build -j 8 && source /path/to/open_s
 * Automatically play action if there is only one legal action.
 
 ## TODO (in order):
+* DrawNonTerminal macro action should stop drawing if there is overdraw from deck (even if cards exist in discard). Currently it will automatically draw from discard.
+* Convert DrawNonTerminal to PlayNonTerminal and allow automatic card playing for non-terminal cards that may not produce draw.
 * Add macro actions for buying cards.
-* Create a macro action, "Play all non-terminal draw", that will play all non terminal draws and stop if there are not enough cards to draw.
 * Represent cards and card effects as fixed feature embeddings + card effect embeddings.
 * Design observation tensor with MLP NN architecture in mind.
 * Exclude draw cards that install effect nodes on applyEffect from non-terminal candidates for DrawNonTerminal (requires a per-card flag to mark effect-node-producing draws).
