@@ -23,6 +23,7 @@ bash -lc 'cmake --build /path/to/open_spiel/build -j 8 && source /path/to/open_s
 * Create a macro action, "Play all non-terminal draw", that will play all non terminal draws and stop if there are not enough cards to draw.
 * Represent cards and card effects as fixed feature embeddings + card effect embeddings.
 * Design observation tensor with MLP NN architecture in mind.
+* Exclude draw cards that install effect nodes on applyEffect from non-terminal candidates for DrawNonTerminal (requires a per-card flag to mark effect-node-producing draws).
 
 ### Training Optimization ideas:
 #### Improvements to training efficiency and cost.

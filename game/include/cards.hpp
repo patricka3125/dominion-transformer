@@ -144,6 +144,9 @@ public:
     static bool GainFromBoardHandler(DominionState& state, int player, Action action_id);
 };
 
+// Heuristic composite action resolver
+void ResolveDrawNonTerminal(DominionState& state, int player);
+
 // Derived cards with custom effects
 class CellarCard : public Card {
 public:

@@ -108,7 +108,7 @@ void RunThroneRoomTests() {
     SPIEL_CHECK_TRUE(has_finish);
   }
 
-  // Ignores ascending constraint in chain
+  // Ignores ascending constraint in chain (use non-draw ACTION)
   {
     std::shared_ptr<const Game> game = LoadGame("dominion");
     std::unique_ptr<State> state = game->NewInitialState();
@@ -117,7 +117,7 @@ void RunThroneRoomTests() {
 
     AddCardToHand(ds, 0, CardName::CARD_ThroneRoom);
     AddCardToHand(ds, 0, CardName::CARD_ThroneRoom);
-    AddCardToHand(ds, 0, CardName::CARD_Smithy);
+    AddCardToHand(ds, 0, CardName::CARD_Festival);
     SetPhase(ds, Phase::actionPhase);
 
     ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_ThroneRoom)));
@@ -125,9 +125,9 @@ void RunThroneRoomTests() {
       ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_ThroneRoom)));
     }
     auto actions = ds->LegalActions();
-    bool can_select_smithy = std::find(actions.begin(), actions.end(),
-        open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Smithy))) != actions.end();
-    SPIEL_CHECK_TRUE(can_select_smithy);
+    bool can_select_festival = std::find(actions.begin(), actions.end(),
+        open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Festival))) != actions.end();
+    SPIEL_CHECK_TRUE(can_select_festival);
   }
 }
 

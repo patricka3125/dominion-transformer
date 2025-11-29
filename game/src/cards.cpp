@@ -224,9 +224,26 @@ std::vector<Action> PendingEffectLegalActions(const DominionState& state, int pl
     const auto* hs = node->hand_selection();
     if (!hs) return actions;
     if (ps.pending_choice == PendingChoice::PlayActionFromHand) {
+      const auto* tr = dynamic_cast<const ThroneRoomEffectNode*>(node);
+      int throne_depth = tr ? tr->throne_depth() : 0;
+      bool has_nonterm_candidate = false;
+      // Build PlayHandIndex actions with suppression rules for DrawNonTerminal action.
       for (int j = 0; j < kNumSupplyPiles; ++j) {
         if (!CanSelectHandIndexForNode(state, player, node, j)) continue;
+        const Card& spec = GetCardSpec(static_cast<CardName>(j));
+        bool is_draw = spec.grant_draw_ > 0;
+        bool is_nonterminal = spec.grant_action_ >= 1;
+        bool is_terminal = is_draw && !is_nonterminal;
+        // Suppress terminal draw when throne_depth >= 2.
+        if (throne_depth >= 2 && is_terminal) continue;
+        // Suppress non-terminal draw when throne_depth >= 1; mark candidate.
+        if (throne_depth >= 1 && is_draw && is_nonterminal) { has_nonterm_candidate = true; continue; }
         actions.push_back(ActionIds::PlayHandIndex(j));
+      }
+      // Offer DrawNonTerminal when a candidate exists under chain.
+      if (throne_depth >= 1) {
+        // Capacity check handled in resolver; presence indicates availability.
+        if (has_nonterm_candidate) actions.push_back(ActionIds::DrawNonTerminal());
       }
       actions.push_back(ActionIds::ThroneHandSelectFinish());
     } else {
@@ -276,5 +293,59 @@ void Card::InitBoardSelection(DominionState& state, int player) {
   ps.pending_choice = PendingChoice::SelectUpToCardsFromBoard;
 }
 
+static int AvailableDrawCapacity(const DominionState& st, int pl) {
+  const auto& p = st.player_states_[pl];
+  int deck_sz = static_cast<int>(p.deck_.size());
+  int discard_sz = 0; for (int c : p.discard_counts_) discard_sz += c;
+  return deck_sz + discard_sz;
+}
+
+static bool IsNonTerminalDraw(const Card& spec) {
+  bool is_action = std::find(spec.types_.begin(), spec.types_.end(), CardType::ACTION) != spec.types_.end();
+  return is_action && spec.grant_draw_ > 0 && spec.grant_action_ >= 1;
+}
+
+void ResolveDrawNonTerminal(DominionState& st, int pl) {
+  while (st.actions_ >= 1) {
+    if (st.IsChanceNode()) {
+      st.ApplyAction(ActionIds::Shuffle());
+      continue;
+    }
+    SPIEL_CHECK_FALSE(st.CurrentPlayer() != pl);
+    int throne_depth = 0;
+    if (st.player_states_[pl].pending_choice == PendingChoice::PlayActionFromHand) {
+      if (!st.player_states_[pl].effect_queue.empty()) {
+        auto* tr = dynamic_cast<ThroneRoomEffectNode*>(st.player_states_[pl].effect_queue.front().get());
+        if (tr) throne_depth = tr->throne_depth();
+      }
+    }
+    int capacity = AvailableDrawCapacity(st, pl);
+    int best_j = -1;
+    int best_draw = -1;
+    int best_actions = -1;
+    int best_cost = 1e9;
+    const auto& p = st.player_states_[pl];
+    for (int j = 0; j < kNumSupplyPiles; ++j) {
+      if (p.hand_counts_[j] <= 0) continue;
+      const Card& spec = GetCardSpec(static_cast<CardName>(j));
+      if (st.actions_ == 1 && !IsNonTerminalDraw(spec)) continue;
+      if (spec.grant_draw_ == 0) continue;
+      int projected_draw = spec.grant_draw_ * (throne_depth > 0 ? 2 : 1);
+      if (projected_draw > capacity) continue;
+      if (projected_draw > best_draw ||
+          (projected_draw == best_draw && spec.grant_action_ > best_actions) ||
+          (projected_draw == best_draw && spec.grant_action_ == best_actions && spec.cost_ < best_cost)) {
+        best_j = j;
+        best_draw = projected_draw;
+        best_actions = spec.grant_action_;
+        best_cost = spec.cost_;
+      }
+    }
+    if (best_j < 0) break;
+    st.ApplyAction(ActionIds::PlayHandIndex(best_j));
+    // loop continues with updated state until actions run out or no candidate fits capacity
+  }
+  SPIEL_CHECK_GE(st.actions_, 1);
+}
 }  // namespace dominion
 }  // namespace open_spiel
