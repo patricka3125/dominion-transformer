@@ -754,25 +754,6 @@ This enables:
 
 ### 1. Code Maintainability
 
-#### 1.1 Effect Node Factory Pattern
-**Issue**: Effect node creation is scattered across card implementations.
-
-**Recommendation**: Implement a centralized factory:
-
-```cpp
-class EffectNodeFactory {
-public:
-    static std::unique_ptr<EffectNode> Create(
-        CardName card, 
-        PendingChoice choice,
-        const HandSelectionStruct* hs = nullptr,
-        int extra_param = 0
-    );
-};
-```
-
-**Benefits**: Centralizes construction logic, simplifies JSON deserialization, reduces code duplication.
-
 #### 1.2 Card Effect Interface Separation
 **Issue**: `Card::applyEffect()` conflates effect initiation with card specification.
 
@@ -791,23 +772,6 @@ class Card {
 ```
 
 **Benefits**: Cleaner separation, easier testing, supports card variants.
-
-#### 1.3 Consolidate Hand Count Management
-**Issue**: Hand counts are accessed directly via `player_states_[p].hand_counts_[j]` throughout the codebase.
-
-**Recommendation**: Add helper methods to `PlayerState`:
-
-```cpp
-struct PlayerState {
-    int HandCount(CardName card) const;
-    int TotalHandSize() const;
-    void AddToHand(CardName card, int count = 1);
-    bool RemoveFromHand(CardName card, int count = 1);
-    void MoveHandToDiscard();
-};
-```
-
-**Benefits**: Reduces boilerplate, centralizes validation, easier to add logging.
 
 ### 2. Efficiency Improvements
 
@@ -957,8 +921,6 @@ auto game = LoadGame("dominion", params);
 |----------|-------------|--------|--------|
 | 🔴 High | Observation Tensor Implementation | Medium | Critical for training |
 | 🔴 High | Legal Action Caching | Low | Performance |
-| 🟡 Medium | Hand Helper Methods | Low | Maintainability |
-| 🟡 Medium | Effect Node Factory | Medium | Maintainability |
 | 🟡 Medium | Kingdom Configuration | Medium | Flexibility |
 | 🟢 Low | Sparse Hand Representation | Medium | Performance |
 | 🟢 Low | Reaction Card Support | High | Game completeness |
