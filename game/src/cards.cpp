@@ -25,7 +25,7 @@ static const std::map<CardName, std::unique_ptr<Card>>& CardRegistry() {
     reg.emplace(CardName::CARD_Village,    std::make_unique<Card>(Card{CardName::CARD_Village,    "Village",   {CardType::ACTION},   3, 0, 0, 2, 1, 0}));
     reg.emplace(CardName::CARD_Smithy,     std::make_unique<Card>(Card{CardName::CARD_Smithy,     "Smithy",    {CardType::ACTION},   4, 0, 0, 0, 3, 0}));
     reg.emplace(CardName::CARD_Market,     std::make_unique<Card>(Card{CardName::CARD_Market,     "Market",    {CardType::ACTION},   5, 1, 0, 1, 1, 1}));
-    reg.emplace(CardName::CARD_Laboratory, std::make_unique<Card>(Card{CardName::CARD_Laboratory,  "Laboratory",{CardType::ACTION},   5, 0, 0, 0, 2, 0}));
+    reg.emplace(CardName::CARD_Laboratory, std::make_unique<Card>(Card{CardName::CARD_Laboratory,  "Laboratory",{CardType::ACTION},   5, 0, 0, 1, 2, 0}));
     reg.emplace(CardName::CARD_Workshop,   std::make_unique<WorkshopCard>(WorkshopCard{CardName::CARD_Workshop,    "Workshop",  {CardType::ACTION},   3, 0, 0, 0, 0, 0, true}));
     reg.emplace(CardName::CARD_Cellar,     std::make_unique<CellarCard>(CellarCard{CardName::CARD_Cellar,      "Cellar",    {CardType::ACTION},   2, 0, 0, 1, 0, 0, true}));
     reg.emplace(CardName::CARD_Chapel,     std::make_unique<ChapelCard>(ChapelCard{CardName::CARD_Chapel,      "Chapel",    {CardType::ACTION},   2, 0, 0, 0, 0, 0, true}));
@@ -282,6 +282,7 @@ static int AvailableDrawCapacity(const DominionState& st, int pl) {
   return deck_sz;
 }
 
+/* deprecated
 void ResolvePlayNonTerminal(DominionState& st, int pl) {
   bool cards_drawn = false; // Allow for reshuffling discard to deck when no cards drawn yet.
   while (st.actions_ >= 1) {
@@ -296,9 +297,8 @@ void ResolvePlayNonTerminal(DominionState& st, int pl) {
       const Card& spec = GetCardSpec(static_cast<CardName>(j));
 
       if (std::find(spec.types_.begin(), spec.types_.end(), CardType::ACTION) == spec.types_.end()) continue;
-      if (spec.has_unique_effect_) continue; // Do not play cards with unique effects.
-      if (spec.grant_action_ == 0 && spec.grant_draw_ == 0) continue; // Do not play terminal non-draw cards.
-      if (st.actions_ == 1 && spec.grant_action_ == 0) continue; // Do not play terminal draw cards if player has 1 action.
+      if (spec.has_unique_effect_ || spec.grant_draw_ == 0) continue;
+      if (st.actions_ == 1 && spec.grant_action_ == 0) continue; // Do not play terminal cards if player has 1 action.
 
       int projected_draw = spec.grant_draw_;
       if (projected_draw > capacity && cards_drawn) continue;
@@ -325,5 +325,6 @@ void ResolvePlayNonTerminal(DominionState& st, int pl) {
   }
   SPIEL_CHECK_GE(st.actions_, 1);
 }
+  */
 }  // namespace dominion
 }  // namespace open_spiel

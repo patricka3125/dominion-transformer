@@ -52,7 +52,7 @@ namespace ActionIds {
   inline Action Shuffle() { return GainSelectBase() + kNumSupplyPiles; }
 
   // Composite heuristic action: play a non-terminal action chosen by engine.
-  inline Action PlayNonTerminal() { return static_cast<Action>(Shuffle() + 1); }
+  // inline Action PlayNonTerminal() { return static_cast<Action>(Shuffle() + 1); }
 }
 
 // Human-readable names for action IDs. The caller provides the supply size

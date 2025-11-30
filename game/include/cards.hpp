@@ -173,7 +173,7 @@ public:
 };
 
 // Heuristic composite action resolver
-void ResolvePlayNonTerminal(DominionState& state, int player);
+// void ResolvePlayNonTerminal(DominionState& state, int player);
 
 // Derived cards with custom effects
 class CellarCard : public Card {
