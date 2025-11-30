@@ -12,8 +12,7 @@ namespace dominion {
 bool ThroneRoomCard::ThroneRoomSelectActionHandler(DominionState& st, int pl, Action action_id) {
   auto& p = st.player_states_[pl];
   if (p.pending_choice != PendingChoice::PlayActionFromHand) return false;
-  ThroneRoomEffectNode* node = nullptr;
-  if (!p.effect_queue.empty()) node = dynamic_cast<ThroneRoomEffectNode*>(p.effect_queue.front().get());
+  ThroneRoomEffectNode* node = dynamic_cast<ThroneRoomEffectNode*>(p.FrontEffect());
   if (action_id == ActionIds::ThroneHandSelectFinish()) {
     // No selection: do nothing, end effect.
     if (node) node->FinishSelection(st, pl);
@@ -21,14 +20,14 @@ bool ThroneRoomCard::ThroneRoomSelectActionHandler(DominionState& st, int pl, Ac
   }
   if (action_id >= 0 && action_id < ActionIds::MaxHandSize()) {
     int j = static_cast<int>(action_id);
-    SPIEL_CHECK_TRUE(j >= 0 && j < kNumSupplyPiles);
+    SPIEL_CHECK_TRUE(IsValidPileIndex(j));
     SPIEL_CHECK_TRUE(p.hand_counts_[j] > 0);
     const auto* hs = node ? node->hand_selection() : nullptr;
     SPIEL_CHECK_TRUE(hs == nullptr || hs->last_selected_original_index_value() < 0 || j >= hs->last_selected_original_index_value());
-    CardName cn = static_cast<CardName>(j);
+    CardName cn = ToCardName(j);
     const Card& spec = GetCardSpec(cn);
     // Must be an action card; ignore non-action selections.
-    if (std::find(spec.types_.begin(), spec.types_.end(), CardType::ACTION) == spec.types_.end()) {
+    if (!spec.IsAction()) {
       return true;
     }
     // First play: move to play area, do standard grants, no action decrement here.
@@ -51,11 +50,9 @@ bool ThroneRoomCard::ThroneRoomSelectActionHandler(DominionState& st, int pl, Ac
 void ThroneRoomCard::applyEffect(DominionState& state, int player) const {
   auto& ps = state.player_states_[player];
   ps.effect_queue.clear();
-  {
-    std::unique_ptr<EffectNode> n(new ThroneRoomEffectNode());
-    ps.effect_queue.push_back(std::move(n));
-  }
-  auto* node = dynamic_cast<ThroneRoomEffectNode*>(ps.effect_queue.front().get());
+  auto n = EffectNodeFactory::CreateThroneRoomEffect();
+  ps.effect_queue.push_back(std::move(n));
+  auto* node = dynamic_cast<ThroneRoomEffectNode*>(ps.FrontEffect());
   if (node) node->StartChain(state, player);
 }
 
