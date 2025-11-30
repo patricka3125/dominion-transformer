@@ -217,11 +217,11 @@ std::vector<Action> PendingEffectLegalActions(const DominionState& state, int pl
       ps.pending_choice == PendingChoice::PlayActionFromHand) {
     const EffectNode* node = nullptr;
     if (!ps.effect_queue.empty()) node = ps.effect_queue.front().get();
-    if (!node) return actions;
+    SPIEL_CHECK_FALSE(node == nullptr);
     const auto* hs = node->hand_selection();
-    if (!hs) return actions;
+    SPIEL_CHECK_FALSE(hs == nullptr);
+
     if (ps.pending_choice == PendingChoice::PlayActionFromHand) {
-      const auto* tr = dynamic_cast<const ThroneRoomEffectNode*>(node);
       // Build PlayHandIndex actions with suppression rules for DrawNonTerminal action.
       for (int j = 0; j < kNumSupplyPiles; ++j) {
         if (!CanSelectHandIndexForNode(state, player, node, j)) continue;
@@ -234,8 +234,9 @@ std::vector<Action> PendingEffectLegalActions(const DominionState& state, int pl
         if (!CanSelectHandIndexForNode(state, player, node, j)) continue;
         actions.push_back(use_trash ? ActionIds::TrashHandSelect(j) : ActionIds::DiscardHandSelect(j));
       }
-      if (hs->target_hand_size_value() == 0) {
-        actions.push_back(use_trash ? ActionIds::TrashHandSelectFinish() : ActionIds::DiscardHandSelectFinish());
+
+      if (hs->target_hand_size_value() == 0 || hs->get_allow_finish_selection()) {
+          actions.push_back(use_trash ? ActionIds::TrashHandSelectFinish() : ActionIds::DiscardHandSelectFinish());
       }
     }
     // Defensive assertion: during active discard/trash/play effects, legals must not be empty.

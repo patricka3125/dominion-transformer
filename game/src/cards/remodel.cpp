@@ -9,8 +9,6 @@ namespace dominion {
 bool RemodelCard::RemodelTrashFromHand(DominionState& st, int pl, Action action_id) {
   auto& p = st.player_states_[pl];
   if (p.pending_choice != PendingChoice::TrashUpToCardsFromHand) return false;
-  // Allow early finish without trashing.
-  if (action_id == ActionIds::TrashHandSelectFinish()) return true;
   EffectNode* node = nullptr;
   if (!p.effect_queue.empty()) node = p.effect_queue.front().get();
   if (action_id >= ActionIds::TrashHandBase() && action_id < ActionIds::TrashHandBase() + kNumSupplyPiles) {
@@ -37,7 +35,14 @@ bool RemodelCard::RemodelTrashFromHand(DominionState& st, int pl, Action action_
 }
 
 void RemodelCard::applyEffect(DominionState& state, int player) const {
+  // Return early if no cards to remodel.
   auto& ps = state.player_states_[player];
+  int hand_sz = 0;
+  for (int i = 0; i < kNumSupplyPiles; ++i) {
+    hand_sz += ps.hand_counts_[i];
+  }
+  if (hand_sz == 0) return;
+
   ps.effect_queue.clear();
   {
     std::unique_ptr<EffectNode> n(new RemodelTrashEffectNode(PendingChoice::TrashUpToCardsFromHand));

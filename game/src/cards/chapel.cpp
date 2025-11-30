@@ -30,6 +30,7 @@ void ChapelCard::applyEffect(DominionState& state, int player) const {
     std::unique_ptr<EffectNode> n(new ChapelEffectNode(PendingChoice::TrashUpToCardsFromHand));
     ps.effect_queue.push_back(std::move(n));
     Card::InitHandSelection(state, player, ps.effect_queue.front().get(), PendingChoice::TrashUpToCardsFromHand);
+    ps.effect_queue.front()->hand_selection()->set_allow_finish_selection();
   }
   ps.effect_queue.front()->on_action = ChapelCard::ChapelHandTrashHandler;
 }
