@@ -26,13 +26,15 @@ bool ChapelCard::ChapelHandTrashHandler(DominionState& st, int pl, Action action
 void ChapelCard::applyEffect(DominionState& state, int player) const {
   auto& ps = state.player_states_[player];
   ps.effect_queue.clear();
-  {
-    std::unique_ptr<EffectNode> n(new ChapelEffectNode(PendingChoice::TrashUpToCardsFromHand));
-    ps.effect_queue.push_back(std::move(n));
-    Card::InitHandSelection(state, player, ps.effect_queue.front().get(), PendingChoice::TrashUpToCardsFromHand);
-    ps.effect_queue.front()->hand_selection()->set_allow_finish_selection();
+  auto n = EffectNodeFactory::CreateHandSelectionEffect(
+      CardName::CARD_Chapel,
+      PendingChoice::TrashUpToCardsFromHand);
+  ps.effect_queue.push_back(std::move(n));
+  Card::InitHandSelection(state, player, ps.FrontEffect(), PendingChoice::TrashUpToCardsFromHand);
+  if (auto* hs = ps.FrontEffect()->hand_selection()) {
+    hs->set_allow_finish_selection();
   }
-  ps.effect_queue.front()->on_action = ChapelCard::ChapelHandTrashHandler;
+  ps.FrontEffect()->on_action = ChapelCard::ChapelHandTrashHandler;
 }
 
 }  // namespace dominion

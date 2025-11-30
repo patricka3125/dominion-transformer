@@ -31,17 +31,18 @@ bool MilitiaCard::MilitiaOpponentDiscardHandler(DominionState& st, int pl, Actio
 void MilitiaCard::applyEffect(DominionState& state, int player) const {
   int opp = 1 - player;
   auto& p_opp = state.player_states_[opp];
-  int opp_hand_sz = 0; for (int j=0;j<kNumSupplyPiles;++j) opp_hand_sz += p_opp.hand_counts_[j];
+  int opp_hand_sz = p_opp.TotalHandSize();
   if (opp_hand_sz > 3) {
     p_opp.effect_queue.clear();
-    {
-      std::unique_ptr<EffectNode> n(new MilitiaEffectNode(PendingChoice::DiscardUpToCardsFromHand));
-      p_opp.effect_queue.push_back(std::move(n));
-      auto* hs = p_opp.effect_queue.front()->hand_selection();
-      if (hs) hs->set_target_hand_size(3);
+    auto n = EffectNodeFactory::CreateHandSelectionEffect(
+        CardName::CARD_Militia,
+        PendingChoice::DiscardUpToCardsFromHand);
+    p_opp.effect_queue.push_back(std::move(n));
+    if (auto* hs = p_opp.FrontEffect()->hand_selection()) {
+      hs->set_target_hand_size(3);
     }
-    Card::InitHandSelection(state, opp, p_opp.effect_queue.front().get(), PendingChoice::DiscardUpToCardsFromHand);
-    p_opp.effect_queue.front()->on_action = MilitiaCard::MilitiaOpponentDiscardHandler;
+    Card::InitHandSelection(state, opp, p_opp.FrontEffect(), PendingChoice::DiscardUpToCardsFromHand);
+    p_opp.FrontEffect()->on_action = MilitiaCard::MilitiaOpponentDiscardHandler;
     state.current_player_ = opp;
   }
 }

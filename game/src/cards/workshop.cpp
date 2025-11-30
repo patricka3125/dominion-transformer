@@ -8,12 +8,10 @@ namespace dominion {
 void WorkshopCard::applyEffect(DominionState& state, int player) const {
   auto& ps = state.player_states_[player];
   ps.effect_queue.clear();
-  {
-    std::unique_ptr<EffectNode> n(new WorkshopEffectNode(4));
-    ps.effect_queue.push_back(std::move(n));
-  }
+  auto n = EffectNodeFactory::CreateGainEffect(CardName::CARD_Workshop, 4);
+  ps.effect_queue.push_back(std::move(n));
   Card::InitBoardSelection(state, player);
-  ps.effect_queue.front()->on_action = Card::GainFromBoardHandler;
+  ps.FrontEffect()->on_action = Card::GainFromBoardHandler;
 }
 
 }  // namespace dominion

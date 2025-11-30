@@ -36,13 +36,15 @@ bool CellarCard::CellarHandSelectHandler(DominionState& st, int pl, Action actio
 void CellarCard::applyEffect(DominionState& state, int player) const {
   auto& ps = state.player_states_[player];
   ps.effect_queue.clear();
-  {
-    std::unique_ptr<EffectNode> n(new CellarEffectNode(PendingChoice::DiscardUpToCardsFromHand));
-    ps.effect_queue.push_back(std::move(n));
-    Card::InitHandSelection(state, player, ps.effect_queue.front().get(), PendingChoice::DiscardUpToCardsFromHand);
-    ps.effect_queue.front()->hand_selection()->set_allow_finish_selection();
+  auto n = EffectNodeFactory::CreateHandSelectionEffect(
+      CardName::CARD_Cellar,
+      PendingChoice::DiscardUpToCardsFromHand);
+  ps.effect_queue.push_back(std::move(n));
+  Card::InitHandSelection(state, player, ps.FrontEffect(), PendingChoice::DiscardUpToCardsFromHand);
+  if (auto* hs = ps.FrontEffect()->hand_selection()) {
+    hs->set_allow_finish_selection();
   }
-  ps.effect_queue.front()->on_action = CellarCard::CellarHandSelectHandler;
+  ps.FrontEffect()->on_action = CellarCard::CellarHandSelectHandler;
 }
 
 }  // namespace dominion

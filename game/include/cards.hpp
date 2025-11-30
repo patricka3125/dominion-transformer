@@ -128,6 +128,28 @@ public:
     // Unified play: apply standard grants, then card-specific effects.
     void Play(DominionState& state, int player) const;
 
+    // Card type query methods
+    bool IsAction() const {
+        return std::find(types_.begin(), types_.end(), CardType::ACTION) != types_.end();
+    }
+
+    bool IsTreasure() const {
+        return std::find(types_.begin(), types_.end(), CardType::BASIC_TREASURE) != types_.end() ||
+               std::find(types_.begin(), types_.end(), CardType::SPECIAL_TREASURE) != types_.end();
+    }
+
+    bool IsBasicTreasure() const {
+        return std::find(types_.begin(), types_.end(), CardType::BASIC_TREASURE) != types_.end();
+    }
+
+    bool IsAttack() const {
+        return std::find(types_.begin(), types_.end(), CardType::ATTACK) != types_.end();
+    }
+
+    bool IsVictory() const {
+        return std::find(types_.begin(), types_.end(), CardType::VICTORY) != types_.end();
+    }
+
     // Helper handlers for effect chains.
     static void InitHandSelection(DominionState& state, int player, EffectNode* node, PendingChoice choice);
     static void InitBoardSelection(DominionState& state, int player);

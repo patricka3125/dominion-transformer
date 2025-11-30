@@ -267,7 +267,7 @@ static void TestInitialConstructorState() {
       case CardName::CARD_Cellar:
       case CardName::CARD_Market:
       case CardName::CARD_Militia:
-      case CardName::CARD_Mine:
+      case CardName::CARD_Laboratory:
       case CardName::CARD_Moat:
       case CardName::CARD_Remodel:
       case CardName::CARD_Smithy:

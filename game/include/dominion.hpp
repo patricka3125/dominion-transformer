@@ -23,6 +23,11 @@ inline constexpr int kDominionMaxDistinctActions = 4096; // buffer for future ac
 inline constexpr int kNumCardTypes = 33; // total card enumerators
 inline constexpr int kNumSupplyPiles = kNumCardTypes; // supply indexed by CardName
 
+// Index conversion helpers
+inline int ToIndex(CardName card) { return static_cast<int>(card); }
+inline CardName ToCardName(int idx) { return static_cast<CardName>(idx); }
+inline bool IsValidPileIndex(int idx) { return idx >= 0 && idx < kNumSupplyPiles; }
+
 // Outcome of the game.
 enum class Outcome {
   kPlayer1,
@@ -208,6 +213,68 @@ struct PlayerState {
   // Clear discard selection metadata after finishing the effect.
   void ClearDiscardSelection() {
     // Node-owned state handles metadata; PlayerState only tracks choice.
+  }
+
+  // Hand count management helpers
+  int HandCount(CardName card) const {
+    return hand_counts_[static_cast<int>(card)];
+  }
+
+  int TotalHandSize() const {
+    int total = 0;
+    for (int count : hand_counts_) {
+      total += count;
+    }
+    return total;
+  }
+
+  void AddToHand(CardName card, int count = 1) {
+    hand_counts_[static_cast<int>(card)] += count;
+  }
+
+  bool RemoveFromHand(CardName card, int count = 1) {
+    int& hand_count = hand_counts_[static_cast<int>(card)];
+    if (hand_count >= count) {
+      hand_count -= count;
+      return true;
+    }
+    return false;
+  }
+
+  void MoveHandToDiscard() {
+    for (int j = 0; j < kNumSupplyPiles; ++j) {
+      discard_counts_[j] += hand_counts_[j];
+      hand_counts_[j] = 0;
+    }
+  }
+
+  int TotalDiscardSize() const {
+    int total = 0;
+    for (int count : discard_counts_) {
+      total += count;
+    }
+    return total;
+  }
+
+  void AddToDiscard(CardName card, int count = 1) {
+    discard_counts_[static_cast<int>(card)] += count;
+  }
+
+  bool RemoveFromDiscard(CardName card, int count = 1) {
+    int& discard_count = discard_counts_[static_cast<int>(card)];
+    if (discard_count >= count) {
+      discard_count -= count;
+      return true;
+    }
+    return false;
+  }
+
+  EffectNode* FrontEffect() {
+    return effect_queue.empty() ? nullptr : effect_queue.front().get();
+  }
+
+  const EffectNode* FrontEffect() const {
+    return effect_queue.empty() ? nullptr : effect_queue.front().get();
   }
 
 };
