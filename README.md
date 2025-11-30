@@ -17,11 +17,9 @@ bash -lc 'cmake --build /path/to/open_spiel/build -j 8 && source /path/to/open_s
 ## Known bugs:
 * Remodel should not present finish option during trashing, and the effect should resolve if there are no cards left to be trashed in hand.
 * Automatically play action if there is only one legal action.
+* Need to implement resolver for PlayNonTerminal for throne room. and bug test throne room
 
 ## TODO (in order):
-* DrawNonTerminal macro action should stop drawing if there is overdraw from deck (even if cards exist in discard). Currently it will automatically draw from discard.
-* Convert DrawNonTerminal to PlayNonTerminal and allow automatic card playing for non-terminal cards that may not produce draw.
-* Add macro actions for buying cards.
 * Represent cards and card effects as fixed feature embeddings + card effect embeddings.
 * Design observation tensor with MLP NN architecture in mind.
 * Exclude draw cards that install effect nodes on applyEffect from non-terminal candidates for DrawNonTerminal (requires a per-card flag to mark effect-node-producing draws).
