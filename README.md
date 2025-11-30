@@ -20,13 +20,12 @@ bash -lc 'cmake --build /path/to/open_spiel/build -j 8 && source /path/to/open_s
 * Think I may need to revert/modify the macro action change that plays non terminal net negative draw. 
 
 ## TODO (in order):
-* Represent cards and card effects as fixed feature embeddings + card effect embeddings.
 * Design observation tensor with MLP NN architecture in mind.
+    * Represent cards and card effects as fixed feature embeddings + card effect embeddings.
 * Exclude draw cards that install effect nodes on applyEffect from non-terminal candidates for DrawNonTerminal (requires a per-card flag to mark effect-node-producing draws).
 
 ### Training Optimization ideas:
 #### Improvements to training efficiency and cost.
-* Add macro actions for buying. Instead of play copper, we can just have only the buy actions laid out.
 * Decrease simulations for decisions that have low policy head entropy and also have lower noise weighting.
     * See https://claude.ai/share/d1f122df-ce87-4e5d-b353-b6071d8c72df
 
