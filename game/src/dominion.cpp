@@ -217,7 +217,7 @@ std::vector<Action> DominionState::LegalActions() const {
         if (HasType(spec, CardType::ACTION)) {
           bool is_nonterminal_action = (spec.grant_action_ >= 1);
           bool is_terminal_draw = (spec.grant_draw_ > 0 && spec.grant_action_ == 0);
-          if (is_nonterminal_action || (actions_ >= 2 && is_terminal_draw)) { has_nonterm_candidate = true; continue; }
+          if ((is_nonterminal_action && !spec.has_unique_effect_) || (actions_ >= 2 && is_terminal_draw)) { has_nonterm_candidate = true; continue; }
           filtered.push_back(ActionIds::PlayHandIndex(j));
         }
       }
@@ -226,10 +226,15 @@ std::vector<Action> DominionState::LegalActions() const {
     }
     actions.push_back(ActionIds::EndActions());
   } else if (phase_ == Phase::buyPhase) {
+    int effective_coins = coins_;
     for (int j = 0; j < kNumSupplyPiles; ++j) {
       if (ps.hand_counts_[j] <= 0) continue;
       const Card &spec = GetCardSpec(static_cast<CardName>(j));
-      if (HasType(spec, CardType::BASIC_TREASURE) || HasType(spec, CardType::SPECIAL_TREASURE)) {
+      if (HasType(spec, CardType::BASIC_TREASURE)) {
+        effective_coins += ps.hand_counts_[j] * spec.value_;
+        continue;
+      }
+      if (HasType(spec, CardType::SPECIAL_TREASURE)) {
         actions.push_back(ActionIds::PlayHandIndex(j));
       }
     }
@@ -237,7 +242,7 @@ std::vector<Action> DominionState::LegalActions() const {
       for (int j = 0; j < kNumSupplyPiles; ++j) {
         if (supply_piles_[j] <= 0) continue;
         const Card &spec = GetCardSpec(static_cast<CardName>(j));
-        if (coins_ >= spec.cost_) actions.push_back(ActionIds::BuyFromSupply(j));
+        if (effective_coins >= spec.cost_) actions.push_back(ActionIds::BuyFromSupply(j));
       }
     }
     actions.push_back(ActionIds::EndBuy());
@@ -534,6 +539,16 @@ void DominionState::DoApplyAction(Action action_id) {
         action_id < ActionIds::BuyBase() + kNumSupplyPiles && buys_ > 0) {
       int j = action_id - ActionIds::BuyBase();
       SPIEL_CHECK_TRUE(j >= 0 && j < kNumSupplyPiles);
+      // Auto-play all basic treasures in hand before attempting the purchase.
+      for (int t = 0; t < kNumSupplyPiles; ++t) {
+        if (ps.hand_counts_[t] <= 0) continue;
+        const Card &tspec = GetCardSpec(static_cast<CardName>(t));
+        if (!HasType(tspec, CardType::BASIC_TREASURE)) continue;
+        int c = ps.hand_counts_[t];
+        for (int k = 0; k < c; ++k) {
+          ApplyAction(ActionIds::PlayHandIndex(t));
+        }
+      }
       if (supply_piles_[j] > 0) {
         const Card &spec = GetCardSpec(static_cast<CardName>(j));
         if (coins_ >= spec.cost_) {

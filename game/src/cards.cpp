@@ -26,17 +26,17 @@ static const std::map<CardName, std::unique_ptr<Card>>& CardRegistry() {
     reg.emplace(CardName::CARD_Smithy,     std::make_unique<Card>(Card{CardName::CARD_Smithy,     "Smithy",    {CardType::ACTION},   4, 0, 0, 0, 3, 0}));
     reg.emplace(CardName::CARD_Market,     std::make_unique<Card>(Card{CardName::CARD_Market,     "Market",    {CardType::ACTION},   5, 1, 0, 1, 1, 1}));
     reg.emplace(CardName::CARD_Laboratory, std::make_unique<Card>(Card{CardName::CARD_Laboratory,  "Laboratory",{CardType::ACTION},   5, 0, 0, 0, 2, 0}));
-    reg.emplace(CardName::CARD_Workshop,   std::make_unique<WorkshopCard>(WorkshopCard{CardName::CARD_Workshop,    "Workshop",  {CardType::ACTION},   3, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Cellar,     std::make_unique<CellarCard>(CellarCard{CardName::CARD_Cellar,      "Cellar",    {CardType::ACTION},   2, 0, 0, 1, 0, 0}));
-    reg.emplace(CardName::CARD_Chapel,     std::make_unique<ChapelCard>(ChapelCard{CardName::CARD_Chapel,      "Chapel",    {CardType::ACTION},   2, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Remodel,    std::make_unique<RemodelCard>(RemodelCard{CardName::CARD_Remodel,     "Remodel",   {CardType::ACTION},   4, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Workshop,   std::make_unique<WorkshopCard>(WorkshopCard{CardName::CARD_Workshop,    "Workshop",  {CardType::ACTION},   3, 0, 0, 0, 0, 0, true}));
+    reg.emplace(CardName::CARD_Cellar,     std::make_unique<CellarCard>(CellarCard{CardName::CARD_Cellar,      "Cellar",    {CardType::ACTION},   2, 0, 0, 1, 0, 0, true}));
+    reg.emplace(CardName::CARD_Chapel,     std::make_unique<ChapelCard>(ChapelCard{CardName::CARD_Chapel,      "Chapel",    {CardType::ACTION},   2, 0, 0, 0, 0, 0, true}));
+    reg.emplace(CardName::CARD_Remodel,    std::make_unique<RemodelCard>(RemodelCard{CardName::CARD_Remodel,     "Remodel",   {CardType::ACTION},   4, 0, 0, 0, 0, 0, true}));
     reg.emplace(CardName::CARD_Festival,   std::make_unique<Card>(Card{CardName::CARD_Festival,    "Festival",  {CardType::ACTION},   5, 2, 0, 2, 0, 1}));
     reg.emplace(CardName::CARD_Merchant,   std::make_unique<Card>(Card{CardName::CARD_Merchant,    "Merchant",  {CardType::ACTION},   3, 0, 0, 1, 1, 0}));
     reg.emplace(CardName::CARD_Mine,       std::make_unique<Card>(Card{CardName::CARD_Mine,        "Mine",      {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
     reg.emplace(CardName::CARD_Moat,       std::make_unique<Card>(Card{CardName::CARD_Moat,        "Moat",      {CardType::ACTION},   2, 0, 0, 0, 2, 0}));
     reg.emplace(CardName::CARD_Artisan,    std::make_unique<Card>(Card{CardName::CARD_Artisan,     "Artisan",   {CardType::ACTION},   6, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Militia,    std::make_unique<MilitiaCard>(MilitiaCard{CardName::CARD_Militia,     "Militia",   {CardType::ACTION, CardType::ATTACK},   4, 2, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Witch,      std::make_unique<WitchCard>(WitchCard{CardName::CARD_Witch,       "Witch",     {CardType::ACTION, CardType::ATTACK},   5, 0, 0, 0, 2, 0}));
+    reg.emplace(CardName::CARD_Militia,    std::make_unique<MilitiaCard>(MilitiaCard{CardName::CARD_Militia,     "Militia",   {CardType::ACTION, CardType::ATTACK},   4, 2, 0, 0, 0, 0, true}));
+    reg.emplace(CardName::CARD_Witch,      std::make_unique<WitchCard>(WitchCard{CardName::CARD_Witch,       "Witch",     {CardType::ACTION, CardType::ATTACK},   5, 0, 0, 0, 2, 0, true}));
     reg.emplace(CardName::CARD_Vassal,     std::make_unique<Card>(Card{CardName::CARD_Vassal,      "Vassal",    {CardType::ACTION},   3, 0, 0, 0, 0, 0}));
     reg.emplace(CardName::CARD_Poacher,    std::make_unique<Card>(Card{CardName::CARD_Poacher,     "Poacher",   {CardType::ACTION},   4, 1, 0, 1, 1, 0}));
     reg.emplace(CardName::CARD_Bandit,     std::make_unique<Card>(Card{CardName::CARD_Bandit,      "Bandit",    {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
@@ -47,7 +47,7 @@ static const std::map<CardName, std::unique_ptr<Card>>& CardRegistry() {
     reg.emplace(CardName::CARD_Library,    std::make_unique<Card>(Card{CardName::CARD_Library,     "Library",   {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
     reg.emplace(CardName::CARD_Moneylender,std::make_unique<Card>(Card{CardName::CARD_Moneylender,"Moneylender",{CardType::ACTION}, 4, 0, 0, 0, 0, 0}));
     reg.emplace(CardName::CARD_Sentry,     std::make_unique<Card>(Card{CardName::CARD_Sentry,      "Sentry",    {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_ThroneRoom, std::make_unique<ThroneRoomCard>(ThroneRoomCard{CardName::CARD_ThroneRoom,  "ThroneRoom",{CardType::ACTION},   4, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_ThroneRoom, std::make_unique<ThroneRoomCard>(ThroneRoomCard{CardName::CARD_ThroneRoom,  "ThroneRoom",{CardType::ACTION},   4, 0, 0, 0, 0, 0, true}));
   }
   return reg;
 }
@@ -275,18 +275,16 @@ void Card::InitBoardSelection(DominionState& state, int player) {
   ps.pending_choice = PendingChoice::SelectUpToCardsFromBoard;
 }
 
-static int AvailableDrawCapacity(const DominionState& st, int pl, bool cards_drawn) {
+static int AvailableDrawCapacity(const DominionState& st, int pl) {
   const auto& p = st.player_states_[pl];
   int deck_sz = static_cast<int>(p.deck_.size());
-  int discard_sz = 0;
-  if(!cards_drawn) for (int c : p.discard_counts_) discard_sz += c;
-  return deck_sz + discard_sz;
+  return deck_sz;
 }
 
 void ResolvePlayNonTerminal(DominionState& st, int pl) {
   bool cards_drawn = false; // Allow for reshuffling discard to deck when no cards drawn yet.
   while (st.actions_ >= 1) {
-    int capacity = AvailableDrawCapacity(st, pl, cards_drawn);
+    int capacity = AvailableDrawCapacity(st, pl);
     int best_j = -1;
     int best_draw = -1;
     int best_actions = -1;
@@ -295,12 +293,14 @@ void ResolvePlayNonTerminal(DominionState& st, int pl) {
     for (int j = 0; j < kNumSupplyPiles; ++j) {
       if (p.hand_counts_[j] <= 0) continue;
       const Card& spec = GetCardSpec(static_cast<CardName>(j));
+
       if (std::find(spec.types_.begin(), spec.types_.end(), CardType::ACTION) == spec.types_.end()) continue;
+      if (spec.has_unique_effect_) continue; // Do not play cards with unique effects.
       if (spec.grant_action_ == 0 && spec.grant_draw_ == 0) continue; // Do not play terminal non-draw cards.
       if (st.actions_ == 1 && spec.grant_action_ == 0) continue; // Do not play terminal draw cards if player has 1 action.
 
       int projected_draw = spec.grant_draw_;
-      if (projected_draw > capacity) continue;
+      if (projected_draw > capacity && cards_drawn) continue;
       if (spec.grant_action_ > best_actions ||
           (spec.grant_action_ == best_actions && projected_draw > best_draw) ||
           (spec.grant_action_ == best_actions && projected_draw == best_draw && spec.cost_ < best_cost)) {
