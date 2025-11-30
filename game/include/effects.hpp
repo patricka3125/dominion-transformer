@@ -12,6 +12,7 @@ namespace dominion {
 
 class DominionState;
 enum class PendingChoice : int;
+enum class CardName;
 
 // Base node for pending effects. Each node can optionally expose
 // a HandSelectionStruct or GainFromBoardStruct view for shared handlers.
@@ -215,6 +216,31 @@ struct EffectNodeStructContents {
 EffectNodeStructContents EffectNodeToStruct(const EffectNode& node);
 std::unique_ptr<EffectNode> EffectNodeFromStruct(const EffectNodeStructContents& s,
                                                  PendingChoice pending_choice);
+
+// Factory pattern for centralized effect node creation
+class EffectNodeFactory {
+public:
+  // Create effect nodes for hand selection-based effects
+  static std::unique_ptr<EffectNode> CreateHandSelectionEffect(
+      CardName card,
+      PendingChoice choice,
+      const HandSelectionStruct* hs = nullptr);
+
+  // Create effect nodes for gain-from-board effects
+  static std::unique_ptr<EffectNode> CreateGainEffect(
+      CardName card,
+      int max_cost);
+
+  // Create throne room effect node with specific depth
+  static std::unique_ptr<EffectNode> CreateThroneRoomEffect(int depth = 0);
+
+  // Generic factory method that delegates to specific creators
+  static std::unique_ptr<EffectNode> Create(
+      CardName card,
+      PendingChoice choice,
+      const HandSelectionStruct* hs = nullptr,
+      int extra_param = 0);
+};
 
 } // namespace dominion
 } // namespace open_spiel

@@ -210,6 +210,39 @@ struct PlayerState {
     // Node-owned state handles metadata; PlayerState only tracks choice.
   }
 
+  // Hand count management helpers
+  int HandCount(CardName card) const {
+    return hand_counts_[static_cast<int>(card)];
+  }
+
+  int TotalHandSize() const {
+    int total = 0;
+    for (int count : hand_counts_) {
+      total += count;
+    }
+    return total;
+  }
+
+  void AddToHand(CardName card, int count = 1) {
+    hand_counts_[static_cast<int>(card)] += count;
+  }
+
+  bool RemoveFromHand(CardName card, int count = 1) {
+    int& hand_count = hand_counts_[static_cast<int>(card)];
+    if (hand_count >= count) {
+      hand_count -= count;
+      return true;
+    }
+    return false;
+  }
+
+  void MoveHandToDiscard() {
+    for (int j = 0; j < kNumSupplyPiles; ++j) {
+      discard_counts_[j] += hand_counts_[j];
+      hand_counts_[j] = 0;
+    }
+  }
+
 };
 
 class DominionState : public State {
