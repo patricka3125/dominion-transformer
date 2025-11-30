@@ -8,6 +8,50 @@
 namespace open_spiel {
 namespace dominion {
 
+// Card spec registry: base set subset sufficient for tests.
+static const std::map<CardName, std::unique_ptr<Card>>& CardRegistry() {
+  static std::map<CardName, std::unique_ptr<Card>> reg;
+  if (reg.empty()) {
+    // Basic supply
+    reg.emplace(CardName::CARD_Copper,    std::make_unique<Card>(Card{CardName::CARD_Copper,   "Copper",    {CardType::BASIC_TREASURE}, 0, 1, 0}));
+    reg.emplace(CardName::CARD_Silver,    std::make_unique<Card>(Card{CardName::CARD_Silver,   "Silver",    {CardType::BASIC_TREASURE}, 3, 2, 0}));
+    reg.emplace(CardName::CARD_Gold,      std::make_unique<Card>(Card{CardName::CARD_Gold,     "Gold",      {CardType::BASIC_TREASURE}, 6, 3, 0}));
+    reg.emplace(CardName::CARD_Estate,    std::make_unique<Card>(Card{CardName::CARD_Estate,   "Estate",    {CardType::VICTORY},  2, 0, 1}));
+    reg.emplace(CardName::CARD_Duchy,     std::make_unique<Card>(Card{CardName::CARD_Duchy,    "Duchy",     {CardType::VICTORY},  5, 0, 3}));
+    reg.emplace(CardName::CARD_Province,  std::make_unique<Card>(Card{CardName::CARD_Province, "Province",  {CardType::VICTORY},  8, 0, 6}));
+    reg.emplace(CardName::CARD_Curse,     std::make_unique<Card>(Card{CardName::CARD_Curse,    "Curse",     {CardType::CURSE},    0, 0, -1}));
+
+    // Base set actions
+    reg.emplace(CardName::CARD_Village,    std::make_unique<Card>(Card{CardName::CARD_Village,    "Village",   {CardType::ACTION},   3, 0, 0, 2, 1, 0}));
+    reg.emplace(CardName::CARD_Smithy,     std::make_unique<Card>(Card{CardName::CARD_Smithy,     "Smithy",    {CardType::ACTION},   4, 0, 0, 0, 3, 0}));
+    reg.emplace(CardName::CARD_Market,     std::make_unique<Card>(Card{CardName::CARD_Market,     "Market",    {CardType::ACTION},   5, 1, 0, 1, 1, 1}));
+    reg.emplace(CardName::CARD_Laboratory, std::make_unique<Card>(Card{CardName::CARD_Laboratory,  "Laboratory",{CardType::ACTION},   5, 0, 0, 0, 2, 0}));
+    reg.emplace(CardName::CARD_Workshop,   std::make_unique<WorkshopCard>(WorkshopCard{CardName::CARD_Workshop,    "Workshop",  {CardType::ACTION},   3, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Cellar,     std::make_unique<CellarCard>(CellarCard{CardName::CARD_Cellar,      "Cellar",    {CardType::ACTION},   2, 0, 0, 1, 0, 0}));
+    reg.emplace(CardName::CARD_Chapel,     std::make_unique<ChapelCard>(ChapelCard{CardName::CARD_Chapel,      "Chapel",    {CardType::ACTION},   2, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Remodel,    std::make_unique<RemodelCard>(RemodelCard{CardName::CARD_Remodel,     "Remodel",   {CardType::ACTION},   4, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Festival,   std::make_unique<Card>(Card{CardName::CARD_Festival,    "Festival",  {CardType::ACTION},   5, 2, 0, 2, 0, 1}));
+    reg.emplace(CardName::CARD_Merchant,   std::make_unique<Card>(Card{CardName::CARD_Merchant,    "Merchant",  {CardType::ACTION},   3, 0, 0, 1, 1, 0}));
+    reg.emplace(CardName::CARD_Mine,       std::make_unique<Card>(Card{CardName::CARD_Mine,        "Mine",      {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Moat,       std::make_unique<Card>(Card{CardName::CARD_Moat,        "Moat",      {CardType::ACTION},   2, 0, 0, 0, 2, 0}));
+    reg.emplace(CardName::CARD_Artisan,    std::make_unique<Card>(Card{CardName::CARD_Artisan,     "Artisan",   {CardType::ACTION},   6, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Militia,    std::make_unique<MilitiaCard>(MilitiaCard{CardName::CARD_Militia,     "Militia",   {CardType::ACTION, CardType::ATTACK},   4, 2, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Witch,      std::make_unique<WitchCard>(WitchCard{CardName::CARD_Witch,       "Witch",     {CardType::ACTION, CardType::ATTACK},   5, 0, 0, 0, 2, 0}));
+    reg.emplace(CardName::CARD_Vassal,     std::make_unique<Card>(Card{CardName::CARD_Vassal,      "Vassal",    {CardType::ACTION},   3, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Poacher,    std::make_unique<Card>(Card{CardName::CARD_Poacher,     "Poacher",   {CardType::ACTION},   4, 1, 0, 1, 1, 0}));
+    reg.emplace(CardName::CARD_Bandit,     std::make_unique<Card>(Card{CardName::CARD_Bandit,      "Bandit",    {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Bureaucrat, std::make_unique<Card>(Card{CardName::CARD_Bureaucrat,  "Bureaucrat",{CardType::ACTION},   4, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_CouncilRoom,std::make_unique<Card>(Card{CardName::CARD_CouncilRoom, "CouncilRoom",{CardType::ACTION}, 5, 0, 0, 0, 4, 1}));
+    reg.emplace(CardName::CARD_Gardens,    std::make_unique<Card>(Card{CardName::CARD_Gardens,     "Gardens",   {CardType::VICTORY},  4, 0, 0}));
+    reg.emplace(CardName::CARD_Harbinger,  std::make_unique<Card>(Card{CardName::CARD_Harbinger,   "Harbinger", {CardType::ACTION},   3, 0, 0, 1, 1, 0}));
+    reg.emplace(CardName::CARD_Library,    std::make_unique<Card>(Card{CardName::CARD_Library,     "Library",   {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Moneylender,std::make_unique<Card>(Card{CardName::CARD_Moneylender,"Moneylender",{CardType::ACTION}, 4, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Sentry,     std::make_unique<Card>(Card{CardName::CARD_Sentry,      "Sentry",    {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_ThroneRoom, std::make_unique<ThroneRoomCard>(ThroneRoomCard{CardName::CARD_ThroneRoom,  "ThroneRoom",{CardType::ACTION},   4, 0, 0, 0, 0, 0}));
+  }
+  return reg;
+}
+
 // Typed helpers for effect queue management (used locally in this TU).
 template <typename T, typename... Args>
 static T* PushEffectNode(DominionState& state, int player, Args&&... args) {
@@ -141,53 +185,6 @@ bool Card::GainFromBoardHandler(DominionState& st, int pl, Action action_id) {
   return false;
 }
 
-// Throne Room selection: choose one action card from hand; first play executes
-// grants and effect without spending an action; second play re-applies effect only.
-// ThroneRoom selection handler implemented in src/cards/throne_room.cpp
-// Card spec registry: base set subset sufficient for tests.
-static const std::map<CardName, std::unique_ptr<Card>>& CardRegistry() {
-  static std::map<CardName, std::unique_ptr<Card>> reg;
-  if (reg.empty()) {
-    // Basic supply
-    reg.emplace(CardName::CARD_Copper,    std::make_unique<Card>(Card{CardName::CARD_Copper,   "Copper",    {CardType::BASIC_TREASURE}, 0, 1, 0}));
-    reg.emplace(CardName::CARD_Silver,    std::make_unique<Card>(Card{CardName::CARD_Silver,   "Silver",    {CardType::BASIC_TREASURE}, 3, 2, 0}));
-    reg.emplace(CardName::CARD_Gold,      std::make_unique<Card>(Card{CardName::CARD_Gold,     "Gold",      {CardType::BASIC_TREASURE}, 6, 3, 0}));
-    reg.emplace(CardName::CARD_Estate,    std::make_unique<Card>(Card{CardName::CARD_Estate,   "Estate",    {CardType::VICTORY},  2, 0, 1}));
-    reg.emplace(CardName::CARD_Duchy,     std::make_unique<Card>(Card{CardName::CARD_Duchy,    "Duchy",     {CardType::VICTORY},  5, 0, 3}));
-    reg.emplace(CardName::CARD_Province,  std::make_unique<Card>(Card{CardName::CARD_Province, "Province",  {CardType::VICTORY},  8, 0, 6}));
-    reg.emplace(CardName::CARD_Curse,     std::make_unique<Card>(Card{CardName::CARD_Curse,    "Curse",     {CardType::CURSE},    0, 0, -1}));
-
-    // Base set actions
-    reg.emplace(CardName::CARD_Village,    std::make_unique<Card>(Card{CardName::CARD_Village,    "Village",   {CardType::ACTION},   3, 0, 0, 2, 1, 0}));
-    reg.emplace(CardName::CARD_Smithy,     std::make_unique<Card>(Card{CardName::CARD_Smithy,     "Smithy",    {CardType::ACTION},   4, 0, 0, 0, 3, 0}));
-    reg.emplace(CardName::CARD_Market,     std::make_unique<Card>(Card{CardName::CARD_Market,     "Market",    {CardType::ACTION},   5, 1, 0, 1, 1, 1}));
-    reg.emplace(CardName::CARD_Laboratory, std::make_unique<Card>(Card{CardName::CARD_Laboratory,  "Laboratory",{CardType::ACTION},   5, 0, 0, 0, 2, 0}));
-    reg.emplace(CardName::CARD_Workshop,   std::make_unique<WorkshopCard>(WorkshopCard{CardName::CARD_Workshop,    "Workshop",  {CardType::ACTION},   3, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Cellar,     std::make_unique<CellarCard>(CellarCard{CardName::CARD_Cellar,      "Cellar",    {CardType::ACTION},   2, 0, 0, 1, 0, 0}));
-    reg.emplace(CardName::CARD_Chapel,     std::make_unique<ChapelCard>(ChapelCard{CardName::CARD_Chapel,      "Chapel",    {CardType::ACTION},   2, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Remodel,    std::make_unique<RemodelCard>(RemodelCard{CardName::CARD_Remodel,     "Remodel",   {CardType::ACTION},   4, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Festival,   std::make_unique<Card>(Card{CardName::CARD_Festival,    "Festival",  {CardType::ACTION},   5, 2, 0, 2, 0, 1}));
-    reg.emplace(CardName::CARD_Merchant,   std::make_unique<Card>(Card{CardName::CARD_Merchant,    "Merchant",  {CardType::ACTION},   3, 0, 0, 1, 1, 0}));
-    reg.emplace(CardName::CARD_Mine,       std::make_unique<Card>(Card{CardName::CARD_Mine,        "Mine",      {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Moat,       std::make_unique<Card>(Card{CardName::CARD_Moat,        "Moat",      {CardType::ACTION},   2, 0, 0, 0, 2, 0}));
-    reg.emplace(CardName::CARD_Artisan,    std::make_unique<Card>(Card{CardName::CARD_Artisan,     "Artisan",   {CardType::ACTION},   6, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Militia,    std::make_unique<MilitiaCard>(MilitiaCard{CardName::CARD_Militia,     "Militia",   {CardType::ACTION, CardType::ATTACK},   4, 2, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Witch,      std::make_unique<WitchCard>(WitchCard{CardName::CARD_Witch,       "Witch",     {CardType::ACTION, CardType::ATTACK},   5, 0, 0, 0, 2, 0}));
-    reg.emplace(CardName::CARD_Vassal,     std::make_unique<Card>(Card{CardName::CARD_Vassal,      "Vassal",    {CardType::ACTION},   3, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Poacher,    std::make_unique<Card>(Card{CardName::CARD_Poacher,     "Poacher",   {CardType::ACTION},   4, 1, 0, 1, 1, 0}));
-    reg.emplace(CardName::CARD_Bandit,     std::make_unique<Card>(Card{CardName::CARD_Bandit,      "Bandit",    {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Bureaucrat, std::make_unique<Card>(Card{CardName::CARD_Bureaucrat,  "Bureaucrat",{CardType::ACTION},   4, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_CouncilRoom,std::make_unique<Card>(Card{CardName::CARD_CouncilRoom, "CouncilRoom",{CardType::ACTION}, 5, 0, 0, 0, 4, 1}));
-    reg.emplace(CardName::CARD_Gardens,    std::make_unique<Card>(Card{CardName::CARD_Gardens,     "Gardens",   {CardType::VICTORY},  4, 0, 0}));
-    reg.emplace(CardName::CARD_Harbinger,  std::make_unique<Card>(Card{CardName::CARD_Harbinger,   "Harbinger", {CardType::ACTION},   3, 0, 0, 1, 1, 0}));
-    reg.emplace(CardName::CARD_Library,    std::make_unique<Card>(Card{CardName::CARD_Library,     "Library",   {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Moneylender,std::make_unique<Card>(Card{CardName::CARD_Moneylender,"Moneylender",{CardType::ACTION}, 4, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Sentry,     std::make_unique<Card>(Card{CardName::CARD_Sentry,      "Sentry",    {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_ThroneRoom, std::make_unique<ThroneRoomCard>(ThroneRoomCard{CardName::CARD_ThroneRoom,  "ThroneRoom",{CardType::ACTION},   4, 0, 0, 0, 0, 0}));
-  }
-  return reg;
-}
-
 const Card& GetCardSpec(CardName name) {
   const auto& reg = CardRegistry();
   return *(reg.at(name));
@@ -225,25 +222,10 @@ std::vector<Action> PendingEffectLegalActions(const DominionState& state, int pl
     if (!hs) return actions;
     if (ps.pending_choice == PendingChoice::PlayActionFromHand) {
       const auto* tr = dynamic_cast<const ThroneRoomEffectNode*>(node);
-      int throne_depth = tr ? tr->throne_depth() : 0;
-      bool has_nonterm_candidate = false;
       // Build PlayHandIndex actions with suppression rules for DrawNonTerminal action.
       for (int j = 0; j < kNumSupplyPiles; ++j) {
         if (!CanSelectHandIndexForNode(state, player, node, j)) continue;
-        const Card& spec = GetCardSpec(static_cast<CardName>(j));
-        bool is_draw = spec.grant_draw_ > 0;
-        bool is_nonterminal = spec.grant_action_ >= 1;
-        bool is_terminal = is_draw && !is_nonterminal;
-        // Suppress terminal draw when throne_depth >= 2.
-        if (throne_depth >= 2 && is_terminal) continue;
-        // Suppress non-terminal draw when throne_depth >= 1; mark candidate.
-        if (throne_depth >= 1 && is_draw && is_nonterminal) { has_nonterm_candidate = true; continue; }
         actions.push_back(ActionIds::PlayHandIndex(j));
-      }
-      // Offer DrawNonTerminal when a candidate exists under chain.
-      if (throne_depth >= 1) {
-        // Capacity check handled in resolver; presence indicates availability.
-        if (has_nonterm_candidate) actions.push_back(ActionIds::DrawNonTerminal());
       }
       actions.push_back(ActionIds::ThroneHandSelectFinish());
     } else {
@@ -293,33 +275,18 @@ void Card::InitBoardSelection(DominionState& state, int player) {
   ps.pending_choice = PendingChoice::SelectUpToCardsFromBoard;
 }
 
-static int AvailableDrawCapacity(const DominionState& st, int pl) {
+static int AvailableDrawCapacity(const DominionState& st, int pl, bool cards_drawn) {
   const auto& p = st.player_states_[pl];
   int deck_sz = static_cast<int>(p.deck_.size());
-  int discard_sz = 0; for (int c : p.discard_counts_) discard_sz += c;
+  int discard_sz = 0;
+  if(!cards_drawn) for (int c : p.discard_counts_) discard_sz += c;
   return deck_sz + discard_sz;
 }
 
-static bool IsNonTerminalDraw(const Card& spec) {
-  bool is_action = std::find(spec.types_.begin(), spec.types_.end(), CardType::ACTION) != spec.types_.end();
-  return is_action && spec.grant_draw_ > 0 && spec.grant_action_ >= 1;
-}
-
-void ResolveDrawNonTerminal(DominionState& st, int pl) {
+void ResolvePlayNonTerminal(DominionState& st, int pl) {
+  bool cards_drawn = false; // Allow for reshuffling discard to deck when no cards drawn yet.
   while (st.actions_ >= 1) {
-    if (st.IsChanceNode()) {
-      st.ApplyAction(ActionIds::Shuffle());
-      continue;
-    }
-    SPIEL_CHECK_FALSE(st.CurrentPlayer() != pl);
-    int throne_depth = 0;
-    if (st.player_states_[pl].pending_choice == PendingChoice::PlayActionFromHand) {
-      if (!st.player_states_[pl].effect_queue.empty()) {
-        auto* tr = dynamic_cast<ThroneRoomEffectNode*>(st.player_states_[pl].effect_queue.front().get());
-        if (tr) throne_depth = tr->throne_depth();
-      }
-    }
-    int capacity = AvailableDrawCapacity(st, pl);
+    int capacity = AvailableDrawCapacity(st, pl, cards_drawn);
     int best_j = -1;
     int best_draw = -1;
     int best_actions = -1;
@@ -328,21 +295,31 @@ void ResolveDrawNonTerminal(DominionState& st, int pl) {
     for (int j = 0; j < kNumSupplyPiles; ++j) {
       if (p.hand_counts_[j] <= 0) continue;
       const Card& spec = GetCardSpec(static_cast<CardName>(j));
-      if (st.actions_ == 1 && !IsNonTerminalDraw(spec)) continue;
-      if (spec.grant_draw_ == 0) continue;
-      int projected_draw = spec.grant_draw_ * (throne_depth > 0 ? 2 : 1);
+      if (std::find(spec.types_.begin(), spec.types_.end(), CardType::ACTION) == spec.types_.end()) continue;
+      if (spec.grant_action_ == 0 && spec.grant_draw_ == 0) continue; // Do not play terminal non-draw cards.
+      if (st.actions_ == 1 && spec.grant_action_ == 0) continue; // Do not play terminal draw cards if player has 1 action.
+
+      int projected_draw = spec.grant_draw_;
       if (projected_draw > capacity) continue;
-      if (projected_draw > best_draw ||
-          (projected_draw == best_draw && spec.grant_action_ > best_actions) ||
-          (projected_draw == best_draw && spec.grant_action_ == best_actions && spec.cost_ < best_cost)) {
+      if (spec.grant_action_ > best_actions ||
+          (spec.grant_action_ == best_actions && projected_draw > best_draw) ||
+          (spec.grant_action_ == best_actions && projected_draw == best_draw && spec.cost_ < best_cost)) {
         best_j = j;
         best_draw = projected_draw;
         best_actions = spec.grant_action_;
         best_cost = spec.cost_;
       }
     }
+
     if (best_j < 0) break;
     st.ApplyAction(ActionIds::PlayHandIndex(best_j));
+    if (st.IsChanceNode()) {
+      SPIEL_CHECK_FALSE(cards_drawn);
+      st.ApplyAction(ActionIds::Shuffle());
+      continue;
+    }
+    cards_drawn = true;
+    SPIEL_CHECK_FALSE(st.CurrentPlayer() != pl);
     // loop continues with updated state until actions run out or no candidate fits capacity
   }
   SPIEL_CHECK_GE(st.actions_, 1);

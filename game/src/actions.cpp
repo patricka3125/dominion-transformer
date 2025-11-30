@@ -36,7 +36,7 @@ std::string ActionNames::Name(Action action_id, int num_supply_piles) {
   }
 
   if (action_id == Shuffle()) return "Shuffle";
-  if (action_id == ActionIds::DrawNonTerminal()) return "DrawNonTerminal";
+  if (action_id == ActionIds::PlayNonTerminal()) return "PlayNonTerminal";
 
   return std::string("Unknown_") + std::to_string(action_id);
 }

@@ -51,8 +51,8 @@ namespace ActionIds {
   // Chance outcome used in sampled stochastic mode for deck shuffling.
   inline Action Shuffle() { return GainSelectBase() + kNumSupplyPiles; }
 
-  // Composite heuristic action: play a non-terminal draw card chosen by engine.
-  inline Action DrawNonTerminal() { return static_cast<Action>(Shuffle() + 1); }
+  // Composite heuristic action: play a non-terminal action chosen by engine.
+  inline Action PlayNonTerminal() { return static_cast<Action>(Shuffle() + 1); }
 }
 
 // Human-readable names for action IDs. The caller provides the supply size

@@ -215,14 +215,14 @@ std::vector<Action> DominionState::LegalActions() const {
         if (ps.hand_counts_[j] <= 0) continue;
         const Card &spec = GetCardSpec(static_cast<CardName>(j));
         if (HasType(spec, CardType::ACTION)) {
-          bool is_nonterminal_draw = (spec.grant_draw_ > 0 && spec.grant_action_ >= 1);
+          bool is_nonterminal_action = (spec.grant_action_ >= 1);
           bool is_terminal_draw = (spec.grant_draw_ > 0 && spec.grant_action_ == 0);
-          if (is_nonterminal_draw || (actions_ >= 2 && is_terminal_draw)) { has_nonterm_candidate = true; continue; }
+          if (is_nonterminal_action || (actions_ >= 2 && is_terminal_draw)) { has_nonterm_candidate = true; continue; }
           filtered.push_back(ActionIds::PlayHandIndex(j));
         }
       }
       actions.insert(actions.end(), filtered.begin(), filtered.end());
-      if (has_nonterm_candidate) actions.push_back(ActionIds::DrawNonTerminal());
+      if (has_nonterm_candidate) actions.push_back(ActionIds::PlayNonTerminal());
     }
     actions.push_back(ActionIds::EndActions());
   } else if (phase_ == Phase::buyPhase) {
@@ -494,8 +494,8 @@ void DominionState::DoApplyAction(Action action_id) {
       phase_ = Phase::buyPhase;
       return;
     }
-    if (action_id == ActionIds::DrawNonTerminal()) {
-      ResolveDrawNonTerminal(*this, current_player_);
+    if (action_id == ActionIds::PlayNonTerminal()) {
+      ResolvePlayNonTerminal(*this, current_player_);
       MaybeAutoAdvanceToBuyPhase();
       return;
     }
