@@ -164,5 +164,72 @@ std::unique_ptr<EffectNode> EffectNodeFromStruct(const EffectNodeStructContents&
   return out;
 }
 
+// EffectNodeFactory implementation
+std::unique_ptr<EffectNode> EffectNodeFactory::CreateHandSelectionEffect(
+    CardName card,
+    PendingChoice choice,
+    const HandSelectionStruct* hs) {
+  std::unique_ptr<EffectNode> node;
+  switch (card) {
+    case CardName::CARD_Cellar:
+      node = std::unique_ptr<EffectNode>(new CellarEffectNode(choice, hs));
+      break;
+    case CardName::CARD_Chapel:
+      node = std::unique_ptr<EffectNode>(new ChapelEffectNode(choice, hs));
+      break;
+    case CardName::CARD_Remodel:
+      node = std::unique_ptr<EffectNode>(new RemodelTrashEffectNode(choice, hs));
+      break;
+    case CardName::CARD_Militia:
+      node = std::unique_ptr<EffectNode>(new MilitiaEffectNode(choice, hs));
+      break;
+    default:
+      // Unsupported card type for hand selection effects
+      break;
+  }
+  return node;
+}
+
+std::unique_ptr<EffectNode> EffectNodeFactory::CreateGainEffect(
+    CardName card,
+    int max_cost) {
+  std::unique_ptr<EffectNode> node;
+  switch (card) {
+    case CardName::CARD_Workshop:
+      node = std::unique_ptr<EffectNode>(new WorkshopEffectNode(max_cost));
+      break;
+    case CardName::CARD_Remodel:
+      node = std::unique_ptr<EffectNode>(new RemodelGainEffectNode(max_cost));
+      break;
+    default:
+      // Unsupported card type for gain effects
+      break;
+  }
+  return node;
+}
+
+std::unique_ptr<EffectNode> EffectNodeFactory::CreateThroneRoomEffect(int depth) {
+  return std::unique_ptr<EffectNode>(new ThroneRoomEffectNode(depth));
+}
+
+std::unique_ptr<EffectNode> EffectNodeFactory::Create(
+    CardName card,
+    PendingChoice choice,
+    const HandSelectionStruct* hs,
+    int extra_param) {
+  // For throne room, extra_param represents depth
+  if (card == CardName::CARD_ThroneRoom) {
+    return CreateThroneRoomEffect(extra_param);
+  }
+
+  // For gain effects
+  if (choice == PendingChoice::SelectUpToCardsFromBoard) {
+    return CreateGainEffect(card, extra_param);
+  }
+
+  // For hand selection effects
+  return CreateHandSelectionEffect(card, choice, hs);
+}
+
 } // namespace dominion
 } // namespace open_spiel
