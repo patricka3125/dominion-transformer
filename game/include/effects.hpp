@@ -31,6 +31,18 @@ public:
   virtual const struct GainFromBoardStruct* gain_from_board() const { return nullptr; }
 };
 
+// CRTP base for automatic clone implementation
+template<typename Derived>
+class CloneableEffectNode : public EffectNode {
+public:
+  std::unique_ptr<EffectNode> clone() const override {
+    auto cloned = std::make_unique<Derived>(static_cast<const Derived&>(*this));
+    cloned->on_action = on_action;
+    cloned->enforce_ascending = enforce_ascending;
+    return cloned;
+  }
+};
+
 // Effect-local state for hand selection flows.
 // - target_hand_size: threshold to auto-finish (e.g., Militia to 3)
 // - last_selected_original_index: enforces ascending original index selection
@@ -69,17 +81,10 @@ struct GainFromBoardStruct {
 };
 
 // Cellar: discard any number, then draw equal.
-class CellarEffectNode : public EffectNode {
+class CellarEffectNode : public CloneableEffectNode<CellarEffectNode> {
 public:
-  CellarEffectNode(PendingChoice choice = (PendingChoice)0,
-                   const HandSelectionStruct* hs = nullptr);
-  std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<CellarEffectNode>(new CellarEffectNode());
-    n->hand_ = hand_;
-    n->on_action = on_action;
-    n->enforce_ascending = enforce_ascending;
-    return std::unique_ptr<EffectNode>(std::move(n));
-  }
+  CellarEffectNode() = default;
+  CellarEffectNode(PendingChoice choice, const HandSelectionStruct* hs = nullptr);
   HandSelectionStruct* hand_selection() override { return &hand_; }
   const HandSelectionStruct* hand_selection() const override { return &hand_; }
 private:
@@ -87,17 +92,10 @@ private:
 };
 
 // Chapel: trash up to 4 cards.
-class ChapelEffectNode : public EffectNode {
+class ChapelEffectNode : public CloneableEffectNode<ChapelEffectNode> {
 public:
-  ChapelEffectNode(PendingChoice choice = (PendingChoice)0,
-                   const HandSelectionStruct* hs = nullptr);
-  std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<ChapelEffectNode>(new ChapelEffectNode());
-    n->hand_ = hand_;
-    n->on_action = on_action;
-    n->enforce_ascending = enforce_ascending;
-    return std::unique_ptr<EffectNode>(std::move(n));
-  }
+  ChapelEffectNode() = default;
+  ChapelEffectNode(PendingChoice choice, const HandSelectionStruct* hs = nullptr);
   HandSelectionStruct* hand_selection() override { return &hand_; }
   const HandSelectionStruct* hand_selection() const override { return &hand_; }
 private:
@@ -105,17 +103,10 @@ private:
 };
 
 // Remodel stage-1: trash a card from hand.
-class RemodelTrashEffectNode : public EffectNode {
+class RemodelTrashEffectNode : public CloneableEffectNode<RemodelTrashEffectNode> {
 public:
-  RemodelTrashEffectNode(PendingChoice choice = (PendingChoice)0,
-                         const HandSelectionStruct* hs = nullptr);
-  std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<RemodelTrashEffectNode>(new RemodelTrashEffectNode());
-    n->hand_ = hand_;
-    n->on_action = on_action;
-    n->enforce_ascending = enforce_ascending;
-    return std::unique_ptr<EffectNode>(std::move(n));
-  }
+  RemodelTrashEffectNode() = default;
+  RemodelTrashEffectNode(PendingChoice choice, const HandSelectionStruct* hs = nullptr);
   HandSelectionStruct* hand_selection() override { return &hand_; }
   const HandSelectionStruct* hand_selection() const override { return &hand_; }
 private:
@@ -123,17 +114,10 @@ private:
 };
 
 // Militia: opponent discards down to target hand size.
-class MilitiaEffectNode : public EffectNode {
+class MilitiaEffectNode : public CloneableEffectNode<MilitiaEffectNode> {
 public:
-  MilitiaEffectNode(PendingChoice choice = (PendingChoice)0,
-                    const HandSelectionStruct* hs = nullptr);
-  std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<MilitiaEffectNode>(new MilitiaEffectNode());
-    n->hand_ = hand_;
-    n->on_action = on_action;
-    n->enforce_ascending = enforce_ascending;
-    return std::unique_ptr<EffectNode>(std::move(n));
-  }
+  MilitiaEffectNode() = default;
+  MilitiaEffectNode(PendingChoice choice, const HandSelectionStruct* hs = nullptr);
   HandSelectionStruct* hand_selection() override { return &hand_; }
   const HandSelectionStruct* hand_selection() const override { return &hand_; }
 private:
@@ -142,17 +126,10 @@ private:
 
 // Throne Room: select an action and play it twice; if selecting Throne Room,
 // chains additional selection depth until a non-Throne action is chosen.
-class ThroneRoomEffectNode : public EffectNode {
+class ThroneRoomEffectNode : public CloneableEffectNode<ThroneRoomEffectNode> {
 public:
-  explicit ThroneRoomEffectNode(int depth = 0);
-  std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<ThroneRoomEffectNode>(new ThroneRoomEffectNode());
-    n->hand_ = hand_;
-    for (int i = 0; i < throne_select_depth_; ++i) n->increment_throne_depth();
-    n->on_action = on_action;
-    n->enforce_ascending = enforce_ascending;
-    return std::unique_ptr<EffectNode>(std::move(n));
-  }
+  ThroneRoomEffectNode() = default;
+  explicit ThroneRoomEffectNode(int depth);
   int throne_depth() const { return throne_select_depth_; }
   void increment_throne_depth() { ++throne_select_depth_; }
   void decrement_throne_depth() { if (throne_select_depth_ > 0) --throne_select_depth_; }
@@ -172,14 +149,10 @@ private:
 };
 
 // Workshop: gain a card from the supply up to cost 4.
-class WorkshopEffectNode : public EffectNode {
+class WorkshopEffectNode : public CloneableEffectNode<WorkshopEffectNode> {
 public:
+  WorkshopEffectNode() = default;
   explicit WorkshopEffectNode(int max_cost) : gain_(max_cost) {}
-  std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<WorkshopEffectNode>(new WorkshopEffectNode(gain_.max_cost));
-    n->on_action = on_action;
-    return std::unique_ptr<EffectNode>(std::move(n));
-  }
   GainFromBoardStruct* gain_from_board() override { return &gain_; }
   const GainFromBoardStruct* gain_from_board() const override { return &gain_; }
 private:
@@ -187,14 +160,10 @@ private:
 };
 
 // Remodel stage-2: gain a card from the supply up to trashed cost + 2.
-class RemodelGainEffectNode : public EffectNode {
+class RemodelGainEffectNode : public CloneableEffectNode<RemodelGainEffectNode> {
 public:
+  RemodelGainEffectNode() = default;
   explicit RemodelGainEffectNode(int max_cost) : gain_(max_cost) {}
-  std::unique_ptr<EffectNode> clone() const override {
-    auto n = std::unique_ptr<RemodelGainEffectNode>(new RemodelGainEffectNode(gain_.max_cost));
-    n->on_action = on_action;
-    return std::unique_ptr<EffectNode>(std::move(n));
-  }
   GainFromBoardStruct* gain_from_board() override { return &gain_; }
   const GainFromBoardStruct* gain_from_board() const override { return &gain_; }
 private:
