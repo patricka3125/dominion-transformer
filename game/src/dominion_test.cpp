@@ -176,6 +176,73 @@ static void TestTieBreakerAndDrawRules() {
   SPIEL_CHECK_EQ(static_cast<int>(returns_p2win[1]), 1);
 }
 
+// Buy phase should not offer PlayHandIndex for basic treasures.
+static void TestBuyPhaseNoBasicTreasurePlayOptions() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  // Controlled hand: Copper, Silver, Gold.
+  DominionTestHarness::ResetPlayer(ds, 0);
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Copper);
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Silver);
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Gold);
+
+  auto la = ds->LegalActions();
+  int copper_idx = static_cast<int>(CardName::CARD_Copper);
+  int silver_idx = static_cast<int>(CardName::CARD_Silver);
+  int gold_idx = static_cast<int>(CardName::CARD_Gold);
+  bool has_play_copper = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::PlayHandIndex(copper_idx)) != la.end();
+  bool has_play_silver = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::PlayHandIndex(silver_idx)) != la.end();
+  bool has_play_gold = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::PlayHandIndex(gold_idx)) != la.end();
+  SPIEL_CHECK_FALSE(has_play_copper);
+  SPIEL_CHECK_FALSE(has_play_silver);
+  SPIEL_CHECK_FALSE(has_play_gold);
+}
+
+// BuyFromSupply gates by effective coins: coins + basic treasure values in hand.
+static void TestBuyPhaseEffectiveCoinsGateBuys() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  // Hand: Gold (3), Copper (1) => effective coins 4.
+  DominionTestHarness::ResetPlayer(ds, 0);
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Gold);
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Copper);
+
+  auto la = ds->LegalActions();
+  int smithy_idx = static_cast<int>(CardName::CARD_Smithy);   // cost 4
+  int festival_idx = static_cast<int>(CardName::CARD_Festival); // cost 5
+  bool can_buy_smithy = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::BuyFromSupply(smithy_idx)) != la.end();
+  bool can_buy_festival = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::BuyFromSupply(festival_idx)) != la.end();
+  SPIEL_CHECK_TRUE(can_buy_smithy);
+  SPIEL_CHECK_FALSE(can_buy_festival);
+}
+
+// Applying BuyFromSupply should auto-play all basic treasures first.
+static void TestBuyFromSupplyAutoPlaysBasicTreasures() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  DominionTestHarness::ResetPlayer(ds, 0);
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Copper);
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Silver);
+
+  int discard_before = DominionTestHarness::DiscardSize(ds, 0);
+  int silver_idx = static_cast<int>(CardName::CARD_Silver);
+  int silver_supply_before = DominionTestHarness::SupplyCounts(ds)[silver_idx];
+
+  ds->ApplyAction(open_spiel::dominion::ActionIds::BuyFromSupply(silver_idx));
+
+  SPIEL_CHECK_EQ(DominionTestHarness::SupplyCounts(ds)[silver_idx], silver_supply_before - 1);
+  SPIEL_CHECK_EQ(DominionTestHarness::DiscardSize(ds, 0), discard_before + 3);
+}
+
 
 // Verify initial constructor invariants for DominionState.
 static void TestInitialConstructorState() {
@@ -254,6 +321,9 @@ int main() {
   TestBasicVPCount();
   TestTieBreakerAndDrawRules();
   TestInitialConstructorState();
+  TestBuyPhaseNoBasicTreasurePlayOptions();
+  TestBuyPhaseEffectiveCoinsGateBuys();
+  TestBuyFromSupplyAutoPlaysBasicTreasures();
   TestDominionStateJsonRoundTrip();
   TestDominionStateSerializeDeserialize();
   TestEffectQueueJsonRoundTrip();

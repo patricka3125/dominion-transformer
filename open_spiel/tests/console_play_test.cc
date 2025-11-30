@@ -152,10 +152,13 @@ void ConsolePlayTest(
         bool valid_integer = absl::SimpleAtoi(line, &action);
         if (valid_integer) {
           auto iter = absl::c_find(legal_actions, action);
-          SPIEL_CHECK_TRUE(iter != legal_actions.end());
-          state->ApplyAction(action);
-          snapshots.push_back(state->Serialize());
-          applied_action = true;
+          if (iter == legal_actions.end()) {
+            std::cout << "Invalid action entered, please try again" << std::endl;
+          } else {
+            state->ApplyAction(action);
+            snapshots.push_back(state->Serialize());
+            applied_action = true;
+          }
         } else {
           for (Action a : legal_actions) {
             if (line == state->ActionToString(player, a)) {

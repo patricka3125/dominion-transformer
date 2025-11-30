@@ -79,6 +79,7 @@ struct CardOptions {
     std::optional<int> grant_action;
     std::optional<int> grant_draw;
     std::optional<int> grant_buy;
+    std::optional<bool> has_unique_effect;
 };
 
 class Card {
@@ -94,14 +95,17 @@ public:
     int grant_action_ = 0; // +Actions
     int grant_draw_ = 0;   // +Cards
     int grant_buy_ = 0;    // +Buys
+    bool has_unique_effect_ = false;
 
     Card(CardName kind_, std::string name_, std::vector<CardType> types_, int cost_=0, int value_=0, int vp_=0,
-         int grant_action_ = 0, int grant_draw_ = 0, int grant_buy_ = 0)
+         int grant_action_ = 0, int grant_draw_ = 0, int grant_buy_ = 0, bool has_unique_effect = false)
       : name_(std::move(name_)),
         kind_(kind_),
         types_(std::move(types_)),
         cost_(cost_), value_(value_), vp_(vp_),
-        grant_action_(grant_action_), grant_draw_(grant_draw_), grant_buy_(grant_buy_) {}
+        grant_action_(grant_action_), grant_draw_(grant_draw_), grant_buy_(grant_buy_) {
+        has_unique_effect_ = has_unique_effect;
+      }
 
     Card(const CardOptions& opt)
       : name_(opt.name),
@@ -111,7 +115,9 @@ public:
         vp_(opt.vp.value_or(0)),
         grant_action_(opt.grant_action.value_or(0)),
         grant_draw_(opt.grant_draw.value_or(0)),
-        grant_buy_(opt.grant_buy.value_or(0)) {}
+        grant_buy_(opt.grant_buy.value_or(0)) {
+        has_unique_effect_ = opt.has_unique_effect.value_or(false);
+      }
 
     static Card fromOptions(const CardOptions& opt) { return Card(opt); }
 
@@ -143,6 +149,9 @@ public:
         const std::function<void(DominionState&, int)>& on_finish);
     static bool GainFromBoardHandler(DominionState& state, int player, Action action_id);
 };
+
+// Heuristic composite action resolver
+void ResolvePlayNonTerminal(DominionState& state, int player);
 
 // Derived cards with custom effects
 class CellarCard : public Card {

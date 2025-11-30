@@ -41,7 +41,6 @@ using open_spiel::dominion::DominionState;
 using open_spiel::dominion::CardName;
 using open_spiel::dominion::Phase;
 using open_spiel::dominion::DominionTestHarness;
-// use qualified open_spiel::dominion::ActionIds below
 
 namespace open_spiel { namespace dominion { void RunChapelTests(); } }
 namespace open_spiel { namespace dominion { void RunCellarTests(); } }
@@ -506,6 +505,12 @@ static void TestThroneRoomIgnoresAscendingConstraint() {
   SPIEL_CHECK_TRUE(can_select_smithy);
 }
 
+static void TestPlayNonTerminalActionPhase();
+static void TestPlayNonTerminalThroneSuppression();
+static void TestPlayNonTerminalHandlesShuffle();
+static void TestPlayNonTerminalBreaksOnChanceAfterSomeDraw();
+static void TestPlayNonTerminalPrefersHigherActions();
+
 int main() {
   TestMarket();
   TestVillage();
@@ -515,6 +520,11 @@ int main() {
   open_spiel::dominion::RunCellarTests();
   TestDiscardFinishVisibility();
   open_spiel::dominion::RunWorkshopTests();
+  TestPlayNonTerminalActionPhase();
+  TestPlayNonTerminalThroneSuppression();
+  TestPlayNonTerminalHandlesShuffle();
+  TestPlayNonTerminalBreaksOnChanceAfterSomeDraw();
+  TestPlayNonTerminalPrefersHigherActions();
   TestActionToStringAppendsCardNames();
   open_spiel::dominion::RunChapelTests();
   open_spiel::dominion::RunRemodelTests();
@@ -530,4 +540,131 @@ int main() {
   open_spiel::dominion::RunThroneRoomJsonRoundTrip();
   open_spiel::dominion::RunWitchJsonRoundTrip();
   return 0;
+}
+static void TestPlayNonTerminalActionPhase() {
+  auto game = LoadGame("dominion");
+  auto state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+  // Give player 0 Village and Smithy.
+  ds->player_states_[0].hand_counts_.fill(0);
+  ds->player_states_[0].hand_counts_[static_cast<int>(CardName::CARD_Village)] = 1;
+  ds->player_states_[0].hand_counts_[static_cast<int>(CardName::CARD_Smithy)] = 1;
+  ds->phase_ = Phase::actionPhase;
+  ds->actions_ = 2;
+  auto la = ds->LegalActions();
+  bool has_draw_nonterm = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::PlayNonTerminal()) != la.end();
+  SPIEL_CHECK_TRUE(has_draw_nonterm);
+  bool has_play_village = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Village))) != la.end();
+  SPIEL_CHECK_FALSE(has_play_village);
+  bool has_play_smithy = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Smithy))) != la.end();
+  SPIEL_CHECK_FALSE(has_play_smithy);
+}
+
+static void TestPlayNonTerminalThroneSuppression() {
+  auto game = LoadGame("dominion");
+  auto state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+  // Put player into Throne selection with depth 1 and hand Market + Smithy.
+  auto& ps = ds->player_states_[0];
+  ps.effect_queue.clear();
+  ps.hand_counts_.fill(0);
+  ps.hand_counts_[static_cast<int>(CardName::CARD_Market)] = 1;
+  ps.hand_counts_[static_cast<int>(CardName::CARD_Smithy)] = 1;
+  // Install Throne node depth 1.
+  ps.effect_queue.push_back(std::unique_ptr<open_spiel::dominion::EffectNode>(new open_spiel::dominion::ThroneRoomEffectNode(1)));
+  ds->player_states_[0].pending_choice = open_spiel::dominion::PendingChoice::PlayActionFromHand;
+  auto la = ds->LegalActions();
+  bool has_draw_nonterm = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::PlayNonTerminal()) != la.end();
+  SPIEL_CHECK_FALSE(has_draw_nonterm);
+  // Non-terminal Market should be suppressed; terminal Smithy suppressed only when depth >=2 (retained behavior).
+  bool has_play_market = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Market))) != la.end();
+  SPIEL_CHECK_TRUE(has_play_market);
+  bool has_play_smithy = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Smithy))) != la.end();
+  SPIEL_CHECK_TRUE(has_play_smithy);
+}
+
+static void TestPlayNonTerminalHandlesShuffle() {
+  auto game = LoadGame("dominion");
+  auto state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+  auto& ps = ds->player_states_[0];
+  ps.hand_counts_.fill(0);
+  ps.deck_.clear();
+  ps.discard_counts_.fill(0);
+  ps.hand_counts_[static_cast<int>(CardName::CARD_Village)] = 1;
+  ps.discard_counts_[static_cast<int>(CardName::CARD_Copper)] = 3;
+  ds->phase_ = Phase::actionPhase;
+  ds->actions_ = 2;
+  {
+    auto la = ds->LegalActions();
+    bool has_dnt = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::PlayNonTerminal()) != la.end();
+    SPIEL_CHECK_TRUE(has_dnt);
+  }
+  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayNonTerminal());
+  SPIEL_CHECK_EQ(DominionTestHarness::DiscardSize(ds, 0), 0);
+  SPIEL_CHECK_GE(DominionTestHarness::DeckSize(ds, 0), 2);
+  SPIEL_CHECK_GE(DominionTestHarness::Actions(ds), 1);
+  // Not at chance node afterwards; loop continued post-shuffle.
+  {
+    auto la2 = ds->LegalActions();
+    bool only_shuffle = (la2.size() == 1 && la2[0] == open_spiel::dominion::ActionIds::Shuffle());
+    SPIEL_CHECK_FALSE(only_shuffle);
+  }
+  // Village should be in play area.
+  SPIEL_CHECK_GE(DominionTestHarness::PlayAreaSize(ds), 1);
+}
+
+static void TestPlayNonTerminalBreaksOnChanceAfterSomeDraw() {
+  auto game = LoadGame("dominion");
+  auto state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+  auto& ps = ds->player_states_[0];
+  ps.hand_counts_.fill(0);
+  ps.deck_.clear();
+  ps.discard_counts_.fill(0);
+  // Use Laboratory (+2 Cards, +0 Action) to ensure partial draw before shuffle.
+  ps.hand_counts_[static_cast<int>(CardName::CARD_Laboratory)] = 1;
+  ps.deck_.push_back(CardName::CARD_Copper);
+  ps.discard_counts_[static_cast<int>(CardName::CARD_Copper)] = 3;
+  ds->phase_ = Phase::actionPhase;
+  ds->actions_ = 2;
+  {
+    auto la = ds->LegalActions();
+    bool has_dnt = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::PlayNonTerminal()) != la.end();
+    SPIEL_CHECK_TRUE(has_dnt);
+  }
+  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayNonTerminal());
+  {
+    auto la2 = ds->LegalActions();
+    bool only_shuffle = (la2.size() == 1 && la2[0] == open_spiel::dominion::ActionIds::Shuffle());
+    SPIEL_CHECK_FALSE(only_shuffle);
+  }
+  // Discard should have been emptied into deck by the consumed shuffle.
+  SPIEL_CHECK_EQ(DominionTestHarness::DiscardSize(ds, 0), 0);
+}
+static void TestPlayNonTerminalPrefersHigherActions() {
+  auto game = LoadGame("dominion");
+  auto state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+  auto& ps = ds->player_states_[0];
+  ps.hand_counts_.fill(0);
+  ps.deck_.clear();
+  ps.discard_counts_.fill(0);
+  // Ensure enough capacity: add 10 cards to deck.
+  for (int i = 0; i < 10; ++i) ps.deck_.push_back(CardName::CARD_Copper);
+  // Put Village (+2 actions, +1 draw) and Laboratory (+1 action, +2 draw) in hand.
+  ps.hand_counts_[static_cast<int>(CardName::CARD_Village)] = 1;
+  ps.hand_counts_[static_cast<int>(CardName::CARD_Laboratory)] = 1;
+  ds->phase_ = Phase::actionPhase;
+  ds->actions_ = 2;
+  // Composite action should pick the higher-action card first (Village).
+  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayNonTerminal());
+  SPIEL_CHECK_GE(DominionTestHarness::PlayAreaSize(ds), 1);
+  CardName first_played = ds->play_area_.empty() ? CardName::CARD_Copper : ds->play_area_.front();
+  SPIEL_CHECK_EQ(static_cast<int>(first_played), static_cast<int>(CardName::CARD_Village));
 }
