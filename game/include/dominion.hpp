@@ -258,6 +258,9 @@ protected:
   // run when there is no pending effect/choice, to avoid skipping required
   // selections.
   void MaybeAutoAdvanceToBuyPhase();
+  // Optimization: when not at chance node, if LegalActions returns a single
+  // action, auto-apply it and continue until branching occurs.
+  void MaybeAutoApplySingleAction();
   private:
   // Sampled stochastic shuffle state (internal-only).
   bool shuffle_pending_ = false;

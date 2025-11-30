@@ -49,6 +49,24 @@ void RunRemodelTests() {
 
   SPIEL_CHECK_EQ(DiscardSize(ds, 0), discard_before + 1);
   SPIEL_CHECK_EQ(SupplyCount(ds, smithy_idx2), smithy_pile_before - 1);
+
+  // Early return when Remodel is the only card in hand.
+  {
+    std::unique_ptr<State> state2 = game->NewInitialState();
+    auto* ds2 = dynamic_cast<DominionState*>(state2.get());
+    SPIEL_CHECK_TRUE(ds2 != nullptr);
+
+    ds2->player_states_[0].hand_counts_.fill(0);
+    AddCardToHand(ds2, 0, CardName::CARD_Remodel);
+    SetPhase(ds2, Phase::actionPhase);
+    int actions_before2 = ds2->actions_;
+
+    ds2->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Remodel)));
+
+    SPIEL_CHECK_EQ(static_cast<int>(ds2->player_states_[0].pending_choice), static_cast<int>(open_spiel::dominion::PendingChoice::None));
+    SPIEL_CHECK_TRUE(ds2->player_states_[0].effect_queue.empty());
+    SPIEL_CHECK_EQ(ds2->actions_, actions_before2 - 1);
+  }
 }
 
 void RunRemodelJsonRoundTrip() {

@@ -135,6 +135,43 @@ void RunCellarTests() {
     SPIEL_CHECK_EQ(Actions(ds), actions_before);
     SPIEL_CHECK_EQ(DiscardSize(ds, 0), discard_before + 3);
   }
+
+  // Auto-finish when only one legal action (finish) remains after discarding all.
+  {
+    std::shared_ptr<const Game> game = LoadGame("dominion");
+    std::unique_ptr<State> state = game->NewInitialState();
+    auto* ds = dynamic_cast<DominionState*>(state.get());
+    SPIEL_CHECK_TRUE(ds != nullptr);
+
+    AddCardToHand(ds, 0, CardName::CARD_Cellar);
+    SetPhase(ds, Phase::actionPhase);
+    ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Cellar)));
+
+    // Keep discarding any available card until none are left to discard.
+    while (true) {
+      auto la = ds->LegalActions();
+      open_spiel::Action pick = -1;
+      for (auto a : la) {
+        if (a >= open_spiel::dominion::ActionIds::DiscardHandBase() &&
+            a < open_spiel::dominion::ActionIds::DiscardHandBase() + kNumSupplyPiles) {
+          pick = a;
+          break;
+        }
+      }
+      if (pick == -1) break;
+      ds->ApplyAction(pick);
+    }
+
+    // At this point, only DiscardFinish would remain; auto-apply should have resolved it.
+    SPIEL_CHECK_EQ(static_cast<int>(ds->player_states_[0].pending_choice), static_cast<int>(open_spiel::dominion::PendingChoice::None));
+    SPIEL_CHECK_TRUE(ds->player_states_[0].effect_queue.empty());
+    // No finish action should be offered anymore.
+    {
+      auto la2 = ds->LegalActions();
+      bool has_finish = std::find(la2.begin(), la2.end(), open_spiel::dominion::ActionIds::DiscardHandSelectFinish()) != la2.end();
+      SPIEL_CHECK_FALSE(has_finish);
+    }
+  }
 }
 
 void RunCellarJsonRoundTrip() {

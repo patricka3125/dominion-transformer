@@ -34,10 +34,14 @@ public:
 // - target_hand_size: threshold to auto-finish (e.g., Militia to 3)
 // - last_selected_original_index: enforces ascending original index selection
 // - selection_count: tracks number of selections in current effect
+// - allow_finish_selection: whether the card selection allows early finish.
 struct HandSelectionStruct {
-  int target_hand_size = 0;
+  int target_hand_size = 0; // TODO: Improve target_hand_size_value semantic.
   int last_selected_original_index = -1;
   int selection_count = 0;
+
+  bool allow_finish_selection = false;
+
   void set_target_hand_size(int v) { target_hand_size = v; }
   int target_hand_size_value() const { return target_hand_size; }
   int last_selected_original_index_value() const { return last_selected_original_index; }
@@ -46,10 +50,14 @@ struct HandSelectionStruct {
   void increment_selection_count() { ++selection_count; }
   void set_selection_count(int v) { selection_count = v; }
   void reset_selection() { last_selected_original_index = -1; selection_count = 0; }
+  bool get_allow_finish_selection() const { return allow_finish_selection; }
+  void set_allow_finish_selection() {allow_finish_selection = true;}
+
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(HandSelectionStruct,
                                  target_hand_size,
                                  last_selected_original_index,
-                                 selection_count)
+                                 selection_count,
+                                 allow_finish_selection)
 };
 
 // Effect-local state for gain-from-board flows.

@@ -122,7 +122,7 @@ DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
   supply_piles_[static_cast<int>(CardName::CARD_Province)] = 8;
   supply_piles_[static_cast<int>(CardName::CARD_Curse)] = 10;
   std::array<CardName, 10> kingdom = {CardName::CARD_Cellar,  CardName::CARD_Market,  CardName::CARD_Militia,
-                                      CardName::CARD_Mine,    CardName::CARD_Moat,    CardName::CARD_Remodel,
+                                      CardName::CARD_Laboratory,    CardName::CARD_Moat,    CardName::CARD_Remodel,
                                       CardName::CARD_Smithy,  CardName::CARD_Village, CardName::CARD_Workshop,
                                       CardName::CARD_Festival};
   for (CardName cn : kingdom) supply_piles_[static_cast<int>(cn)] = 10;
@@ -491,17 +491,20 @@ void DominionState::DoApplyAction(Action action_id) {
         ps.effect_queue.front()->on_action(*this, current_player_, action_id);
     if (consumed) {
       MaybeAutoAdvanceToBuyPhase();
+      MaybeAutoApplySingleAction();
       return;
     }
   }
   if (phase_ == Phase::actionPhase) {
     if (action_id == ActionIds::EndActions()) {
       phase_ = Phase::buyPhase;
+      MaybeAutoApplySingleAction();
       return;
     }
     if (action_id == ActionIds::PlayNonTerminal()) {
       ResolvePlayNonTerminal(*this, current_player_);
       MaybeAutoAdvanceToBuyPhase();
+      MaybeAutoApplySingleAction();
       return;
     }
     if (action_id < ActionIds::MaxHandSize() && actions_ > 0) {
@@ -533,6 +536,7 @@ void DominionState::DoApplyAction(Action action_id) {
         ps.hand_counts_[j] -= 1;
         spec.applyGrants(*this, current_player_);
       }
+      MaybeAutoApplySingleAction();
       return;
     }
     if (action_id >= ActionIds::BuyBase() &&
@@ -562,6 +566,7 @@ void DominionState::DoApplyAction(Action action_id) {
           }
         }
       }
+      MaybeAutoApplySingleAction();
       return;
     }
   }
@@ -616,6 +621,23 @@ void DominionState::MaybeAutoAdvanceToBuyPhase() {
     if (HasType(spec, CardType::ACTION)) { has_playable_action = true; break; }
   }
   if (!has_playable_action) phase_ = Phase::buyPhase;
+  // After phase adjustments, opportunistically auto-apply when only one legal
+  // action remains (excluding chance/shuffle).
+  MaybeAutoApplySingleAction();
+}
+
+void DominionState::MaybeAutoApplySingleAction() {
+  // Do not auto-apply during chance nodes; respect shuffle prompts.
+  if (IsTerminal() || IsChanceNode()) return;
+  // Limit iteration to prevent pathological loops.
+  int guard = 0;
+  while (!IsTerminal() && !IsChanceNode()) {
+    auto las = LegalActions();
+    if (las.size() != 1) break;
+    ApplyAction(las[0]);
+    guard += 1;
+    if (guard > kDominionMaxDistinctActions) break;
+  }
 }
 
 ActionsAndProbs DominionState::ChanceOutcomes() const {
