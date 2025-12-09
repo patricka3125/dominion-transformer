@@ -78,6 +78,7 @@ using open_spiel::dominion::Phase;
 
 static void TestEndBuySwitchesPlayerAndTurnIncrements();
 static void TestAutoEndOnLastBuy();
+static void TestAutoAdvanceOnZeroActions();
 static void TestDominionStateJsonRoundTrip();
 static void TestDominionStateSerializeDeserialize();
 static void TestEffectQueueJsonRoundTrip();
@@ -293,6 +294,7 @@ static void TestInitialConstructorState() {
 int main() {
   TestEndBuySwitchesPlayerAndTurnIncrements();
   TestAutoEndOnLastBuy();
+  TestAutoAdvanceOnZeroActions();
   TestGardensVP();
   TestBasicVPCount();
   TestTieBreakerAndDrawRules();
@@ -306,6 +308,29 @@ int main() {
   TestThroneRoomChainJsonRoundTrip();
   TestEffectQueueSerializeDeserialize();
   return 0;
+}
+// Playing an action that consumes the last action should auto-advance to buy phase.
+static void TestAutoAdvanceOnZeroActions() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  std::unique_ptr<State> state = game->NewInitialState();
+  auto* ds = dynamic_cast<DominionState*>(state.get());
+  SPIEL_CHECK_TRUE(ds != nullptr);
+
+  // Controlled hand: clear then add a single Smithy (grants +3 cards, +0 actions).
+  DominionTestHarness::ResetPlayer(ds, 0);
+  DominionTestHarness::AddCardToHand(ds, 0, CardName::CARD_Smithy);
+  // Ensure we have exactly 1 action.
+  ds->actions_ = 1;
+  // Must be in action phase to play the card.
+  ds->phase_ = Phase::actionPhase;
+
+  ds->ApplyAction(open_spiel::dominion::ActionIds::PlayHandIndex(static_cast<int>(CardName::CARD_Smithy)));
+  // After playing Smithy, actions drop to 0 and auto-advance should switch to buy phase.
+  SPIEL_CHECK_EQ(static_cast<int>(DominionTestHarness::PhaseVal(ds)), static_cast<int>(open_spiel::dominion::Phase::buyPhase));
+  // In buy phase, EndActions should no longer be a legal action.
+  auto la = ds->LegalActions();
+  bool has_end_actions = std::find(la.begin(), la.end(), open_spiel::dominion::ActionIds::EndActions()) != la.end();
+  SPIEL_CHECK_FALSE(has_end_actions);
 }
 // Verify EndBuy switches to next player and increments turn number (1-based).
 static void TestEndBuySwitchesPlayerAndTurnIncrements() {

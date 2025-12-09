@@ -122,7 +122,7 @@ DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
   supply_piles_[static_cast<int>(CardName::CARD_Province)] = 8;
   supply_piles_[static_cast<int>(CardName::CARD_Curse)] = 10;
   std::array<CardName, 10> kingdom = {CardName::CARD_Cellar,  CardName::CARD_Market,  CardName::CARD_Militia,
-                                      CardName::CARD_Laboratory,    CardName::CARD_Moat,    CardName::CARD_Remodel,
+                                      CardName::CARD_Moneylender,    CardName::CARD_Moat,    CardName::CARD_Remodel,
                                       CardName::CARD_Smithy,  CardName::CARD_Merchant, CardName::CARD_Workshop,
                                       CardName::CARD_Mine};
   for (CardName cn : kingdom) supply_piles_[static_cast<int>(cn)] = 10;
@@ -507,6 +507,8 @@ void DominionState::DoApplyAction(Action action_id) {
         ps.hand_counts_[j] -= 1;
         actions_ -= 1;
         spec.Play(*this, current_player_);
+        MaybeAutoAdvanceToBuyPhase();
+        MaybeAutoApplySingleAction();
       }
     }
   } else if (phase_ == Phase::buyPhase) {
@@ -612,14 +614,14 @@ void DominionState::MaybeAutoAdvanceToBuyPhase() {
     if (HasType(spec, CardType::ACTION)) { has_playable_action = true; break; }
   }
   if (!has_playable_action) phase_ = Phase::buyPhase;
-  // After phase adjustments, opportunistically auto-apply when only one legal
-  // action remains (excluding chance/shuffle).
-  MaybeAutoApplySingleAction();
 }
 
 void DominionState::MaybeAutoApplySingleAction() {
   // Do not auto-apply during chance nodes; respect shuffle prompts.
   if (IsTerminal() || IsChanceNode()) return;
+  // Preserve interactive flows for action selection (e.g., Throne Room).
+  const auto &ps = player_states_[current_player_];
+  if (ps.pending_choice == PendingChoice::PlayActionFromHand) return;
   // Limit iteration to prevent pathological loops.
   int guard = 0;
   while (!IsTerminal() && !IsChanceNode()) {
