@@ -55,10 +55,10 @@ add_library(dominion_cpp_game STATIC
     src/cards/workshop.cpp
     src/cards/remodel.cpp
     src/cards/mine.cpp
-    src/cards/militia.cpp
-    src/cards/witch.cpp
-    src/cards/throne_room.cpp
-    src/cards/silver.cpp
+  src/cards/militia.cpp
+  src/cards/witch.cpp
+  src/cards/throne_room.cpp
+    
     src/cards/moneylender.cpp
 )
 

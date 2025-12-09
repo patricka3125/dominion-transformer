@@ -165,7 +165,7 @@ DominionState::DominionState(std::shared_ptr<const Game> game, const json &j)
   turn_number_ = contents.turn_number;
   actions_ = contents.actions;
   buys_ = contents.buys;
-  first_silver_played_this_turn_ = contents.first_silver_played_this_turn;
+  merchants_played_ = contents.merchants_played;
   phase_ = static_cast<Phase>(contents.phase);
   last_player_to_go_ = contents.last_player_to_go;
   shuffle_pending_ = contents.shuffle_pending;
@@ -221,11 +221,16 @@ std::vector<Action> DominionState::LegalActions() const {
     actions.push_back(ActionIds::EndActions());
   } else if (phase_ == Phase::buyPhase) {
     int effective_coins = coins_;
+    bool merchant_bonus_counted = false;
     for (int j = 0; j < kNumSupplyPiles; ++j) {
       if (ps.hand_counts_[j] <= 0) continue;
       const Card &spec = GetCardSpec(static_cast<CardName>(j));
       if (HasType(spec, CardType::BASIC_TREASURE)) {
         effective_coins += ps.hand_counts_[j] * spec.value_;
+        if (!merchant_bonus_counted && static_cast<CardName>(j) == CardName::CARD_Silver && merchants_played_ > 0) {
+          effective_coins += merchants_played_;
+          merchant_bonus_counted = true;
+        }
         continue;
       }
       if (HasType(spec, CardType::SPECIAL_TREASURE)) {
@@ -257,7 +262,7 @@ std::unique_ptr<StateStruct> DominionState::ToStruct() const {
   contents.turn_number = turn_number_;
   contents.actions = actions_;
   contents.buys = buys_;
-  contents.first_silver_played_this_turn = first_silver_played_this_turn_;
+  contents.merchants_played = merchants_played_;
   contents.phase = static_cast<int>(phase_);
   contents.last_player_to_go = last_player_to_go_;
   contents.shuffle_pending = shuffle_pending_;
@@ -507,6 +512,10 @@ void DominionState::DoApplyAction(Action action_id) {
         ps.hand_counts_[j] -= 1;
         actions_ -= 1;
         spec.Play(*this, current_player_);
+        if (cn == CardName::CARD_Merchant) {
+          bool silver_in_play = std::find(play_area_.begin(), play_area_.end(), CardName::CARD_Silver) != play_area_.end();
+          if (!silver_in_play) merchants_played_ += 1;
+        }
         MaybeAutoAdvanceToBuyPhase();
         MaybeAutoApplySingleAction();
       }
@@ -526,7 +535,9 @@ void DominionState::DoApplyAction(Action action_id) {
         play_area_.push_back(cn);
         ps.hand_counts_[j] -= 1;
         spec.applyGrants(*this, current_player_);
-        spec.applyEffect(*this, current_player_);
+        if (cn == CardName::CARD_Silver) {
+          ApplyMerchantBonusOnSilverPlay();
+        }
       }
       MaybeAutoApplySingleAction();
       return;
@@ -584,7 +595,7 @@ void DominionState::EndBuyCleanup() {
   coins_ = 0;
   actions_ = 1;
   buys_ = 1;
-  first_silver_played_this_turn_ = false;
+  merchants_played_ = 0;
   turn_number_ += 1;
   DrawCardsFor(current_player_, 5);
   current_player_ = 1 - current_player_;
@@ -630,6 +641,13 @@ void DominionState::MaybeAutoApplySingleAction() {
     ApplyAction(las[0]);
     guard += 1;
     if (guard > kDominionMaxDistinctActions) break;
+  }
+}
+
+void DominionState::ApplyMerchantBonusOnSilverPlay() {
+  if (merchants_played_ > 0) {
+    coins_ += merchants_played_;
+    merchants_played_ = 0;
   }
 }
 

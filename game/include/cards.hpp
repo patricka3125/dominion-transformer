@@ -231,12 +231,6 @@ public:
   void applyEffect(DominionState& state, int player) const override;
 };
 
-class SilverCard : public Card {
-public:
-  using Card::Card;
-  void applyEffect(DominionState& state, int player) const override;
-};
-
 class ThroneRoomCard : public Card {
 public:
   using Card::Card;

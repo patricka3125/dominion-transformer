@@ -14,7 +14,7 @@ static const std::map<CardName, std::unique_ptr<Card>>& CardRegistry() {
   if (reg.empty()) {
     // Basic supply
     reg.emplace(CardName::CARD_Copper,    std::make_unique<Card>(Card{CardName::CARD_Copper,   "Copper",    {CardType::BASIC_TREASURE}, 0, 1, 0}));
-    reg.emplace(CardName::CARD_Silver,    std::make_unique<SilverCard>(SilverCard{CardName::CARD_Silver,   "Silver",    {CardType::BASIC_TREASURE}, 3, 2, 0}));
+    reg.emplace(CardName::CARD_Silver,    std::make_unique<Card>(Card{CardName::CARD_Silver,   "Silver",    {CardType::BASIC_TREASURE}, 3, 2, 0}));
     reg.emplace(CardName::CARD_Gold,      std::make_unique<Card>(Card{CardName::CARD_Gold,     "Gold",      {CardType::BASIC_TREASURE}, 6, 3, 0}));
     reg.emplace(CardName::CARD_Estate,    std::make_unique<Card>(Card{CardName::CARD_Estate,   "Estate",    {CardType::VICTORY},  2, 0, 1}));
     reg.emplace(CardName::CARD_Duchy,     std::make_unique<Card>(Card{CardName::CARD_Duchy,    "Duchy",     {CardType::VICTORY},  5, 0, 3}));
