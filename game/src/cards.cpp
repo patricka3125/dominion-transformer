@@ -14,7 +14,7 @@ static const std::map<CardName, std::unique_ptr<Card>>& CardRegistry() {
   if (reg.empty()) {
     // Basic supply
     reg.emplace(CardName::CARD_Copper,    std::make_unique<Card>(Card{CardName::CARD_Copper,   "Copper",    {CardType::BASIC_TREASURE}, 0, 1, 0}));
-    reg.emplace(CardName::CARD_Silver,    std::make_unique<Card>(Card{CardName::CARD_Silver,   "Silver",    {CardType::BASIC_TREASURE}, 3, 2, 0}));
+    reg.emplace(CardName::CARD_Silver,    std::make_unique<SilverCard>(SilverCard{CardName::CARD_Silver,   "Silver",    {CardType::BASIC_TREASURE}, 3, 2, 0}));
     reg.emplace(CardName::CARD_Gold,      std::make_unique<Card>(Card{CardName::CARD_Gold,     "Gold",      {CardType::BASIC_TREASURE}, 6, 3, 0}));
     reg.emplace(CardName::CARD_Estate,    std::make_unique<Card>(Card{CardName::CARD_Estate,   "Estate",    {CardType::VICTORY},  2, 0, 1}));
     reg.emplace(CardName::CARD_Duchy,     std::make_unique<Card>(Card{CardName::CARD_Duchy,    "Duchy",     {CardType::VICTORY},  5, 0, 3}));
@@ -32,7 +32,7 @@ static const std::map<CardName, std::unique_ptr<Card>>& CardRegistry() {
     reg.emplace(CardName::CARD_Remodel,    std::make_unique<RemodelCard>(RemodelCard{CardName::CARD_Remodel,     "Remodel",   {CardType::ACTION},   4, 0, 0, 0, 0, 0, true}));
     reg.emplace(CardName::CARD_Festival,   std::make_unique<Card>(Card{CardName::CARD_Festival,    "Festival",  {CardType::ACTION},   5, 2, 0, 2, 0, 1}));
     reg.emplace(CardName::CARD_Merchant,   std::make_unique<Card>(Card{CardName::CARD_Merchant,    "Merchant",  {CardType::ACTION},   3, 0, 0, 1, 1, 0}));
-    reg.emplace(CardName::CARD_Mine,       std::make_unique<Card>(Card{CardName::CARD_Mine,        "Mine",      {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Mine,       std::make_unique<MineCard>(MineCard{CardName::CARD_Mine,        "Mine",      {CardType::ACTION},   5, 0, 0, 0, 0, 0, true}));
     reg.emplace(CardName::CARD_Moat,       std::make_unique<Card>(Card{CardName::CARD_Moat,        "Moat",      {CardType::ACTION},   2, 0, 0, 0, 2, 0}));
     reg.emplace(CardName::CARD_Artisan,    std::make_unique<Card>(Card{CardName::CARD_Artisan,     "Artisan",   {CardType::ACTION},   6, 0, 0, 0, 0, 0}));
     reg.emplace(CardName::CARD_Militia,    std::make_unique<MilitiaCard>(MilitiaCard{CardName::CARD_Militia,     "Militia",   {CardType::ACTION, CardType::ATTACK},   4, 2, 0, 0, 0, 0, true}));

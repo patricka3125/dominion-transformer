@@ -124,7 +124,7 @@ DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
   std::array<CardName, 10> kingdom = {CardName::CARD_Cellar,  CardName::CARD_Market,  CardName::CARD_Militia,
                                       CardName::CARD_Laboratory,    CardName::CARD_Moat,    CardName::CARD_Remodel,
                                       CardName::CARD_Smithy,  CardName::CARD_Village, CardName::CARD_Workshop,
-                                      CardName::CARD_Festival};
+                                      CardName::CARD_Mine};
   for (CardName cn : kingdom) supply_piles_[static_cast<int>(cn)] = 10;
   initial_supply_piles_ = supply_piles_;
 
@@ -165,6 +165,7 @@ DominionState::DominionState(std::shared_ptr<const Game> game, const json &j)
   turn_number_ = contents.turn_number;
   actions_ = contents.actions;
   buys_ = contents.buys;
+  first_silver_played_this_turn_ = contents.first_silver_played_this_turn;
   phase_ = static_cast<Phase>(contents.phase);
   last_player_to_go_ = contents.last_player_to_go;
   shuffle_pending_ = contents.shuffle_pending;
@@ -256,6 +257,7 @@ std::unique_ptr<StateStruct> DominionState::ToStruct() const {
   contents.turn_number = turn_number_;
   contents.actions = actions_;
   contents.buys = buys_;
+  contents.first_silver_played_this_turn = first_silver_played_this_turn_;
   contents.phase = static_cast<int>(phase_);
   contents.last_player_to_go = last_player_to_go_;
   contents.shuffle_pending = shuffle_pending_;
@@ -522,6 +524,7 @@ void DominionState::DoApplyAction(Action action_id) {
         play_area_.push_back(cn);
         ps.hand_counts_[j] -= 1;
         spec.applyGrants(*this, current_player_);
+        spec.applyEffect(*this, current_player_);
       }
       MaybeAutoApplySingleAction();
       return;
@@ -579,6 +582,7 @@ void DominionState::EndBuyCleanup() {
   coins_ = 0;
   actions_ = 1;
   buys_ = 1;
+  first_silver_played_this_turn_ = false;
   turn_number_ += 1;
   DrawCardsFor(current_player_, 5);
   current_player_ = 1 - current_player_;

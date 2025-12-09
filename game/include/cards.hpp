@@ -210,11 +210,25 @@ public:
   static bool MilitiaOpponentDiscardHandler(DominionState& state, int player, Action action_id);
 };
 
+class MineCard : public Card {
+public:
+  using Card::Card;
+  void applyEffect(DominionState& state, int player) const override;
+  static bool MineTrashFromHand(DominionState& state, int player, Action action_id);
+  static bool MineGainFromBoardHandler(DominionState& state, int player, Action action_id);
+};
+
 class WitchCard : public Card {
 public:
   using Card::Card;
   void applyEffect(DominionState& state, int player) const override;
   static void WitchAttackGiveCurse(DominionState& state, int player);
+};
+
+class SilverCard : public Card {
+public:
+  using Card::Card;
+  void applyEffect(DominionState& state, int player) const override;
 };
 
 class ThroneRoomCard : public Card {
