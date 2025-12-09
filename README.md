@@ -21,6 +21,7 @@ bash -lc 'cmake --build /path/to/open_spiel/build -j 8 && source /path/to/open_s
 ## TODO (in order):
 * Design observation tensor with MLP NN architecture in mind.
     * Represent cards and card effects as fixed feature embeddings + card effect embeddings.
+    * Use attention to encode card embeddings in a kingdom to the width of the tensor block, start with 128 width
 * Exclude draw cards that install effect nodes on applyEffect from non-terminal candidates for DrawNonTerminal (requires a per-card flag to mark effect-node-producing draws).
 
 ### Training Optimization ideas:
