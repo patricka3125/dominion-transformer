@@ -47,7 +47,7 @@ bool MineCard::MineGainFromBoardHandler(DominionState& st, int pl, Action action
     // Gain only treasure up to max_cost
     SPIEL_CHECK_TRUE(spec.IsTreasure());
     if (spec.cost_ <= gs->max_cost) {
-      st.player_states_[pl].discard_counts_[j] += 1;
+      st.player_states_[pl].hand_counts_[j] += 1;
       st.supply_piles_[j] -= 1;
       p.pending_choice = PendingChoice::None;
       if (!p.effect_queue.empty()) p.effect_queue.pop_front();

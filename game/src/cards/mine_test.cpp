@@ -50,9 +50,11 @@ void RunMineTests() {
 
   // Gain Silver and verify state updates
   ds->ApplyAction(open_spiel::dominion::ActionIds::GainSelect(silver_idx));
-  SPIEL_CHECK_EQ(DiscardSize(ds, 0), discard_before + 1);
+  SPIEL_CHECK_EQ(DiscardSize(ds, 0), discard_before);
+  // Silver should be in hand now
+  int hand_silver = ds->player_states_[0].hand_counts_[silver_idx];
+  SPIEL_CHECK_EQ(hand_silver, 1);
   SPIEL_CHECK_EQ(SupplyCount(ds, silver_idx), silver_pile_before - 1);
 }
 
 } } // namespace open_spiel::dominion
-
