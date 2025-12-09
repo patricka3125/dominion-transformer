@@ -111,6 +111,7 @@ EffectNodeStructContents EffectNodeToStruct(const EffectNode& node) {
   }
   if (auto gs = node.gain_from_board()) {
     s.gain_max_cost = gs->max_cost;
+    s.gain_only_treasure = gs->get_only_treasure();
   }
   return s;
 }
@@ -160,6 +161,23 @@ std::unique_ptr<EffectNode> EffectNodeFromStruct(const EffectNodeStructContents&
       out = std::unique_ptr<EffectNode>(std::move(n));
       break;
     }
+    case CardName::CARD_Mine: {
+      if (pending_choice == PendingChoice::TrashUpToCardsFromHand) {
+        out = std::unique_ptr<EffectNode>(new RemodelTrashEffectNode(pending_choice, &s.hand));
+      } else {
+        auto n = std::unique_ptr<RemodelGainEffectNode>(new RemodelGainEffectNode(s.gain_max_cost));
+        if (pending_choice == PendingChoice::SelectUpToCardsFromBoard) {
+          n->on_action = Card::GainFromBoardHandler;
+        }
+        out = std::unique_ptr<EffectNode>(std::move(n));
+      }
+      break;
+    }
+  }
+  if (out) {
+    if (auto gs = out->gain_from_board()) {
+      if (s.gain_only_treasure) gs->set_only_treasure();
+    }
   }
   return out;
 }
@@ -183,6 +201,9 @@ std::unique_ptr<EffectNode> EffectNodeFactory::CreateHandSelectionEffect(
     case CardName::CARD_Militia:
       node = std::unique_ptr<EffectNode>(new MilitiaEffectNode(choice, hs));
       break;
+    case CardName::CARD_Mine:
+      node = std::unique_ptr<EffectNode>(new RemodelTrashEffectNode(choice, hs));
+      break;
     default:
       // Unsupported card type for hand selection effects
       break;
@@ -200,6 +221,10 @@ std::unique_ptr<EffectNode> EffectNodeFactory::CreateGainEffect(
       break;
     case CardName::CARD_Remodel:
       node = std::unique_ptr<EffectNode>(new RemodelGainEffectNode(max_cost));
+      break;
+    case CardName::CARD_Mine:
+      node = std::unique_ptr<EffectNode>(new RemodelGainEffectNode(max_cost));
+      if (auto gs = node->gain_from_board()) gs->set_only_treasure();
       break;
     default:
       // Unsupported card type for gain effects

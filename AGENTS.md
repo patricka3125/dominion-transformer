@@ -36,10 +36,11 @@
 - Serialize complete game state for training pipeline integration
 
 **Current Status:**
-- 14 base set cards fully implemented (Cellar, Chapel, Festival, Laboratory, Market, Merchant, Militia, Moat, Remodel, Smithy, ThroneRoom, Village, Witch, Workshop)
-- 2-player sequential play with sampled stochastic shuffling
-- Full effect queue resolution system
-- JSON serialization for MCTS checkpointing
+- Base set enumerators declared for 33 card types (see game/include/cards.hpp:34-61)
+- Unique-effect cards implemented: Cellar, Chapel, Remodel (trash + gain), Workshop, Militia, Witch, Throne Room, Mine, Moneylender (game/src/cards.cpp:25-51; per-card files under game/src/cards/)
+- Other base actions via standard grants: Village, Smithy, Market, Laboratory, Festival, Merchant, Moat, etc.
+- Buy phase auto-plays basic treasures; Merchant–Silver bonus handled (game/src/dominion.cpp:538-541, 549-558, 647-651)
+- 2-player sequential play with sampled stochastic shuffling; full effect-queue resolution; JSON serialization for checkpoints
 
 ---
 
@@ -60,6 +61,7 @@
 2. **Configure and build:**
    ```bash
    cd game
+   cmake -S . -B build -DOPEN_SPIEL_ROOT="$OPEN_SPIEL_ROOT"
    cmake --build build -j 8
    ```
 
@@ -82,7 +84,7 @@
 ```
 dominion-transformer/
 ├── README.md                          # High-level project overview
-├── CLAUDE.md                          # This file - AI assistant guide
+├── CLAUDE.md                          # AI assistant guide
 ├── docs/
 │   └── dominion-transformer-design-doc.md  # Comprehensive architecture doc
 ├── game/
@@ -101,14 +103,16 @@ dominion-transformer/
 │       ├── dominion_test.cpp          # Unit tests: game flow, state transitions
 │       ├── cards_test.cpp             # Card-specific behavior tests
 │       └── cards/                     # Per-card implementations
-│           ├── cellar.cpp / cellar_test.cpp
-│           ├── chapel.cpp / chapel_test.cpp
-│           ├── militia.cpp / militia_test.cpp
-│           ├── remodel.cpp / remodel_test.cpp
-│           ├── throne_room.cpp / throne_room_test.cpp
-│           ├── witch.cpp / witch_test.cpp
-│           ├── workshop.cpp / workshop_test.cpp
-│           └── [... other card implementations ...]
+            ├── cellar.cpp / cellar_test.cpp
+            ├── chapel.cpp / chapel_test.cpp
+            ├── mine.cpp / mine_test.cpp
+            ├── moneylender.cpp / moneylender_test.cpp
+            ├── militia.cpp / militia_test.cpp
+            ├── remodel.cpp / remodel_test.cpp
+            ├── throne_room.cpp / throne_room_test.cpp
+            ├── witch.cpp / witch_test.cpp
+            ├── workshop.cpp / workshop_test.cpp
+            └── [... other card implementations ...]
 └── open_spiel/
     └── tests/
         ├── console_play_test.cc       # Interactive console player for manual testing
@@ -292,9 +296,9 @@ class Card {
 ```
 
 **Card Registry Pattern:**
-- Singleton `CardRegistry()` holds all card specifications
-- `GetCardSpec(CardName)` retrieves card by enumeration
-- Subclasses (CellarCard, ChapelCard, etc.) override `applyEffect()`
+- Static function `CardRegistry()` holds a process-local map of card specs (game/src/cards.cpp:12-53)
+- `GetCardSpec(CardName)` retrieves a spec by enumeration (game/src/cards.cpp:193-196)
+- Subclasses (CellarCard, ChapelCard, etc.) override `applyEffect()` where unique effects exist
 
 ### 5. **Effect System** (`include/effects.hpp`, `src/effects.cpp`)
 
@@ -335,6 +339,7 @@ public:
 - `RemodelTrashEffectNode` / `RemodelGainEffectNode` - Two-phase effect
 - `WorkshopEffectNode` - Gain card ≤4 cost
 - `WitchEffectNode` - Give curse to opponents
+- `Mine` (trash treasure then gain treasure) via Remodel-style nodes with treasure-only constraint
 
 **EffectNodeFactory Pattern** (recently added):
 ```cpp
@@ -344,6 +349,8 @@ public:
       CardName card, PendingChoice choice, const HandSelectionStruct* hs = nullptr);
   static std::unique_ptr<EffectNode> CreateGainEffect(CardName card, int max_cost);
   static std::unique_ptr<EffectNode> CreateThroneRoomEffect(int depth = 0);
+  static std::unique_ptr<EffectNode> Create(CardName card, PendingChoice choice,
+      const HandSelectionStruct* hs = nullptr, int extra_param = 0);
 };
 ```
 
@@ -354,10 +361,12 @@ struct HandSelectionStruct {
   int last_selected_original_index;    // Ascending constraint for fairness
   int selection_count;                 // Cards selected so far
   bool allow_finish_selection;         // Can finish early?
+  bool only_treasure;                  // Restrict selection to treasures (Mine)
 };
 
 struct GainFromBoardStruct {
-  int max_cost;  // Maximum cost of cards player can gain
+  int max_cost;       // Maximum cost of cards player can gain
+  bool only_treasure; // Restrict gains to treasures (Mine)
 };
 ```
 
@@ -377,7 +386,6 @@ Action ID layout spans ~200 distinct actions:
 [136]         EndBuy                - End buy phase
 [137-169]     GainSelect(j)        - Gain card j (for effect gains)
 [170]         Shuffle              - Chance action (RNG)
-[171]         PlayNonTerminal      - Macro action (composite)
 ```
 
 **Helper functions** (recently added):
@@ -403,6 +411,7 @@ inline bool IsValidPileIndex(int idx) { return idx >= 0 && idx < kNumSupplyPiles
       └─ Transition to Buy Phase
 
 2. Buy Phase
+   ├─ Auto-plays all basic treasures before BuyFromSupply for accurate `coins_`
    ├─ Auto-play basic treasures on any buy action
    └─ While buys > 0:
       └─ Buy card from supply (cost ≤ coins)
@@ -491,7 +500,7 @@ class ThroneRoomEffectNode {
 - **dominion-transformer-design-doc.md** - Comprehensive architecture, UML diagrams, sequence diagrams
 - **BUILD.md** - Build instructions with troubleshooting
 - **README.md** - High-level overview and quick start
-- **CLAUDE.md** - This file - AI assistant guide
+ - **CLAUDE.md** - AI assistant guide
 
 ---
 
@@ -605,9 +614,6 @@ Allows manual play with output of legal actions and state.
    - Hand selection fairness constraint (last_selected_original_index) needs refinement
    - May be too restrictive or not clear in semantics
 
-3. **Macro action with negative-draw cards** (High Priority)
-   - `PlayNonTerminal` may incorrectly select cards with net negative card advantage
-   - Needs filtering of effect-node-producing draws
 
 ### High-Priority TODOs
 
@@ -617,7 +623,6 @@ Allows manual play with output of legal actions and state.
    - Design must support MLP architecture
 
 2. **Improve Macro Actions**
-   - Current `PlayNonTerminal` heuristic is simplistic
    - Goal: Make pluggable for different training phases
 
 ### Medium-Priority TODOs
@@ -672,7 +677,7 @@ Allows manual play with output of legal actions and state.
 1. **CRTP for clone()** - Eliminated 63 lines of boilerplate
 2. **Helper methods** - Encapsulated common operations (TotalHandSize, FrontEffect, etc.)
 3. **Index conversion helpers** - Reduced verbose static_cast operations
-4. **EffectNodeFactory** - Centralized creation logic, cleaner code
+4. **EffectNodeFactory** - Centralized creation logic, general `Create(...)` added
 
 
 ### Optimization Opportunities (Priority Order)

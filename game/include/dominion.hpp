@@ -97,6 +97,7 @@ struct DominionStateStructContents {
   int turn_number;
   int actions;
   int buys;
+  int merchants_played;
   int phase;
   int last_player_to_go;
   bool shuffle_pending;
@@ -110,7 +111,7 @@ struct DominionStateStructContents {
   int move_number;
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(
       DominionStateStructContents, current_player, coins, turn_number, actions,
-      buys, phase, last_player_to_go, shuffle_pending,
+      buys, merchants_played, phase, last_player_to_go, shuffle_pending,
       shuffle_pending_end_of_turn, original_player_for_shuffle,
       pending_draw_count_after_shuffle, supply_piles, initial_supply_piles,
       play_area, player_states, move_number)
@@ -311,6 +312,7 @@ public:
   std::array<int, kNumSupplyPiles> initial_supply_piles_{}; // initial counts for terminal checks, represents the kingdom.
   std::vector<CardName> play_area_{};
   std::array<PlayerState, kNumPlayers> player_states_{};
+  int merchants_played_ = 0;
 
 protected:
   // Applies the given action_id for the current player.
@@ -329,6 +331,7 @@ protected:
   // action, auto-apply it and continue until branching occurs.
   void MaybeAutoApplySingleAction();
   private:
+  void ApplyMerchantBonusOnSilverPlay();
   // Sampled stochastic shuffle state (internal-only).
   bool shuffle_pending_ = false;
   bool shuffle_pending_end_of_turn_ = false;

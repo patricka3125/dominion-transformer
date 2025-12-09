@@ -17,7 +17,6 @@ bash -lc 'cmake --build /path/to/open_spiel/build -j 8 && source /path/to/open_s
 ## Known bugs:
 * Need to implement resolver for PlayNonTerminal for throne room. and bug test throne room
 * Improve ascending index constraint logic somehow. 
-* Think I may need to revert/modify the macro action change that plays non terminal net negative draw. 
 
 ## TODO (in order):
 * Design observation tensor with MLP NN architecture in mind.

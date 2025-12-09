@@ -54,6 +54,7 @@ struct HandSelectionStruct {
   int selection_count = 0;
 
   bool allow_finish_selection = false;
+  bool only_treasure = false;
 
   void set_target_hand_size(int v) { target_hand_size = v; }
   int target_hand_size_value() const { return target_hand_size; }
@@ -65,19 +66,25 @@ struct HandSelectionStruct {
   void reset_selection() { last_selected_original_index = -1; selection_count = 0; }
   bool get_allow_finish_selection() const { return allow_finish_selection; }
   void set_allow_finish_selection() {allow_finish_selection = true;}
+  bool get_only_treasure() const { return only_treasure; }
+  void set_only_treasure() { only_treasure = true; }
 
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(HandSelectionStruct,
                                  target_hand_size,
                                  last_selected_original_index,
                                  selection_count,
-                                 allow_finish_selection)
+                                 allow_finish_selection,
+                                 only_treasure)
 };
 
 // Effect-local state for gain-from-board flows.
 // - max_cost: upper bound for legal gains from supply
 struct GainFromBoardStruct {
   int max_cost = 0;
+  bool only_treasure = false;
   explicit GainFromBoardStruct(int c = 0) : max_cost(c) {}
+  bool get_only_treasure() const { return only_treasure; }
+  void set_only_treasure() { only_treasure = true; }
 };
 
 // Cellar: discard any number, then draw equal.
@@ -174,11 +181,13 @@ struct EffectNodeStructContents {
   int kind = 0;
   HandSelectionStruct hand;
   int gain_max_cost = 0;
+  bool gain_only_treasure = false;
   int throne_select_depth = 0;
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(EffectNodeStructContents,
                                  kind,
                                  hand,
                                  gain_max_cost,
+                                 gain_only_treasure,
                                  throne_select_depth)
 };
 

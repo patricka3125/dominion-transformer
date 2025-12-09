@@ -32,7 +32,7 @@ static const std::map<CardName, std::unique_ptr<Card>>& CardRegistry() {
     reg.emplace(CardName::CARD_Remodel,    std::make_unique<RemodelCard>(RemodelCard{CardName::CARD_Remodel,     "Remodel",   {CardType::ACTION},   4, 0, 0, 0, 0, 0, true}));
     reg.emplace(CardName::CARD_Festival,   std::make_unique<Card>(Card{CardName::CARD_Festival,    "Festival",  {CardType::ACTION},   5, 2, 0, 2, 0, 1}));
     reg.emplace(CardName::CARD_Merchant,   std::make_unique<Card>(Card{CardName::CARD_Merchant,    "Merchant",  {CardType::ACTION},   3, 0, 0, 1, 1, 0}));
-    reg.emplace(CardName::CARD_Mine,       std::make_unique<Card>(Card{CardName::CARD_Mine,        "Mine",      {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Mine,       std::make_unique<MineCard>(MineCard{CardName::CARD_Mine,        "Mine",      {CardType::ACTION},   5, 0, 0, 0, 0, 0, true}));
     reg.emplace(CardName::CARD_Moat,       std::make_unique<Card>(Card{CardName::CARD_Moat,        "Moat",      {CardType::ACTION},   2, 0, 0, 0, 2, 0}));
     reg.emplace(CardName::CARD_Artisan,    std::make_unique<Card>(Card{CardName::CARD_Artisan,     "Artisan",   {CardType::ACTION},   6, 0, 0, 0, 0, 0}));
     reg.emplace(CardName::CARD_Militia,    std::make_unique<MilitiaCard>(MilitiaCard{CardName::CARD_Militia,     "Militia",   {CardType::ACTION, CardType::ATTACK},   4, 2, 0, 0, 0, 0, true}));
@@ -45,7 +45,7 @@ static const std::map<CardName, std::unique_ptr<Card>>& CardRegistry() {
     reg.emplace(CardName::CARD_Gardens,    std::make_unique<Card>(Card{CardName::CARD_Gardens,     "Gardens",   {CardType::VICTORY},  4, 0, 0}));
     reg.emplace(CardName::CARD_Harbinger,  std::make_unique<Card>(Card{CardName::CARD_Harbinger,   "Harbinger", {CardType::ACTION},   3, 0, 0, 1, 1, 0}));
     reg.emplace(CardName::CARD_Library,    std::make_unique<Card>(Card{CardName::CARD_Library,     "Library",   {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Moneylender,std::make_unique<Card>(Card{CardName::CARD_Moneylender,"Moneylender",{CardType::ACTION}, 4, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Moneylender,std::make_unique<MoneylenderCard>(MoneylenderCard{CardName::CARD_Moneylender,"Moneylender",{CardType::ACTION}, 4, 0, 0, 0, 0, 0, true}));
     reg.emplace(CardName::CARD_Sentry,     std::make_unique<Card>(Card{CardName::CARD_Sentry,      "Sentry",    {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
     reg.emplace(CardName::CARD_ThroneRoom, std::make_unique<ThroneRoomCard>(ThroneRoomCard{CardName::CARD_ThroneRoom,  "ThroneRoom",{CardType::ACTION},   4, 0, 0, 0, 0, 0, true}));
   }
@@ -96,6 +96,11 @@ static bool CanSelectHandIndexForNode(const DominionState& st, int pl,
   if (tnode && tnode->throne_depth() > 0) {
     const Card& spec = GetCardSpec(static_cast<CardName>(j));
     return std::find(spec.types_.begin(), spec.types_.end(), CardType::ACTION) != spec.types_.end();
+  }
+  // Optional constraint: only allow treasure selection (used by Mine).
+  if (hs->get_only_treasure()) {
+    const Card& spec = GetCardSpec(static_cast<CardName>(j));
+    if (!spec.IsTreasure()) return false;
   }
   if (node->enforce_ascending && hs->last_selected_original_index_value() >= 0 && j < hs->last_selected_original_index_value()) return false;
   return true;
@@ -252,6 +257,7 @@ std::vector<Action> PendingEffectLegalActions(const DominionState& state, int pl
       if (state.supply_piles_[j] <= 0) continue;
       const Card& spec = GetCardSpec(static_cast<CardName>(j));
       if (spec.cost_ <= gs->max_cost) {
+        if (gs->get_only_treasure() && !spec.IsTreasure()) continue;
         actions.push_back(ActionIds::GainSelect(j));
       }
     }
