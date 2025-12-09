@@ -97,6 +97,11 @@ static bool CanSelectHandIndexForNode(const DominionState& st, int pl,
     const Card& spec = GetCardSpec(static_cast<CardName>(j));
     return std::find(spec.types_.begin(), spec.types_.end(), CardType::ACTION) != spec.types_.end();
   }
+  // Optional constraint: only allow treasure selection (used by Mine).
+  if (hs->get_only_treasure()) {
+    const Card& spec = GetCardSpec(static_cast<CardName>(j));
+    if (!spec.IsTreasure()) return false;
+  }
   if (node->enforce_ascending && hs->last_selected_original_index_value() >= 0 && j < hs->last_selected_original_index_value()) return false;
   return true;
 }
@@ -252,6 +257,7 @@ std::vector<Action> PendingEffectLegalActions(const DominionState& state, int pl
       if (state.supply_piles_[j] <= 0) continue;
       const Card& spec = GetCardSpec(static_cast<CardName>(j));
       if (spec.cost_ <= gs->max_cost) {
+        if (gs->get_only_treasure() && !spec.IsTreasure()) continue;
         actions.push_back(ActionIds::GainSelect(j));
       }
     }

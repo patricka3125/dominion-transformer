@@ -17,7 +17,7 @@ bool MineCard::MineTrashFromHand(DominionState& st, int pl, Action action_id) {
     const auto* hs = node ? node->hand_selection() : nullptr;
     const Card& selected = GetCardSpec(ToCardName(j));
     // Only allow trashing treasures for Mine effect
-    if (!selected.IsTreasure()) return false;
+    SPIEL_CHECK_TRUE(selected.IsTreasure());
     int cap = selected.cost_ + 3;
     // Trash selection: remove from hand.
     p.hand_counts_[j] -= 1;
@@ -45,7 +45,8 @@ bool MineCard::MineGainFromBoardHandler(DominionState& st, int pl, Action action
     SPIEL_CHECK_TRUE(st.supply_piles_[j] > 0);
     const Card& spec = GetCardSpec(static_cast<CardName>(j));
     // Gain only treasure up to max_cost
-    if ((spec.IsTreasure()) && (spec.cost_ <= gs->max_cost)) {
+    SPIEL_CHECK_TRUE(spec.IsTreasure());
+    if (spec.cost_ <= gs->max_cost) {
       st.player_states_[pl].discard_counts_[j] += 1;
       st.supply_piles_[j] -= 1;
       p.pending_choice = PendingChoice::None;
@@ -65,6 +66,9 @@ void MineCard::applyEffect(DominionState& state, int player) const {
       PendingChoice::TrashUpToCardsFromHand);
   ps.effect_queue.push_back(std::move(n));
   Card::InitHandSelection(state, player, ps.FrontEffect(), PendingChoice::TrashUpToCardsFromHand);
+  if (auto* hs = ps.FrontEffect()->hand_selection()) {
+    hs->set_only_treasure();
+  }
   ps.FrontEffect()->on_action = MineCard::MineTrashFromHand;
 }
 
