@@ -45,7 +45,7 @@ static const std::map<CardName, std::unique_ptr<Card>>& CardRegistry() {
     reg.emplace(CardName::CARD_Gardens,    std::make_unique<Card>(Card{CardName::CARD_Gardens,     "Gardens",   {CardType::VICTORY},  4, 0, 0}));
     reg.emplace(CardName::CARD_Harbinger,  std::make_unique<Card>(Card{CardName::CARD_Harbinger,   "Harbinger", {CardType::ACTION},   3, 0, 0, 1, 1, 0}));
     reg.emplace(CardName::CARD_Library,    std::make_unique<Card>(Card{CardName::CARD_Library,     "Library",   {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
-    reg.emplace(CardName::CARD_Moneylender,std::make_unique<Card>(Card{CardName::CARD_Moneylender,"Moneylender",{CardType::ACTION}, 4, 0, 0, 0, 0, 0}));
+    reg.emplace(CardName::CARD_Moneylender,std::make_unique<MoneylenderCard>(MoneylenderCard{CardName::CARD_Moneylender,"Moneylender",{CardType::ACTION}, 4, 0, 0, 0, 0, 0, true}));
     reg.emplace(CardName::CARD_Sentry,     std::make_unique<Card>(Card{CardName::CARD_Sentry,      "Sentry",    {CardType::ACTION},   5, 0, 0, 0, 0, 0}));
     reg.emplace(CardName::CARD_ThroneRoom, std::make_unique<ThroneRoomCard>(ThroneRoomCard{CardName::CARD_ThroneRoom,  "ThroneRoom",{CardType::ACTION},   4, 0, 0, 0, 0, 0, true}));
   }

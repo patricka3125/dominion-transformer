@@ -225,6 +225,12 @@ public:
   static void WitchAttackGiveCurse(DominionState& state, int player);
 };
 
+class MoneylenderCard : public Card {
+public:
+  using Card::Card;
+  void applyEffect(DominionState& state, int player) const override;
+};
+
 class SilverCard : public Card {
 public:
   using Card::Card;

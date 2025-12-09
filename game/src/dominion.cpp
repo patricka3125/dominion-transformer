@@ -123,7 +123,7 @@ DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
   supply_piles_[static_cast<int>(CardName::CARD_Curse)] = 10;
   std::array<CardName, 10> kingdom = {CardName::CARD_Cellar,  CardName::CARD_Market,  CardName::CARD_Militia,
                                       CardName::CARD_Laboratory,    CardName::CARD_Moat,    CardName::CARD_Remodel,
-                                      CardName::CARD_Smithy,  CardName::CARD_Village, CardName::CARD_Workshop,
+                                      CardName::CARD_Smithy,  CardName::CARD_Merchant, CardName::CARD_Workshop,
                                       CardName::CARD_Mine};
   for (CardName cn : kingdom) supply_piles_[static_cast<int>(cn)] = 10;
   initial_supply_piles_ = supply_piles_;

@@ -50,6 +50,7 @@ namespace open_spiel { namespace dominion { void RunMilitiaTests(); } }
 namespace open_spiel { namespace dominion { void RunWitchTests(); } }
 namespace open_spiel { namespace dominion { void RunThroneRoomTests(); } }
 namespace open_spiel { namespace dominion { void RunMerchantTests(); } }
+namespace open_spiel { namespace dominion { void RunMoneylenderTests(); } }
 namespace open_spiel { namespace dominion { void RunChapelJsonRoundTrip(); } }
 namespace open_spiel { namespace dominion { void RunCellarJsonRoundTrip(); } }
 namespace open_spiel { namespace dominion { void RunWorkshopJsonRoundTrip(); } }
@@ -557,6 +558,7 @@ int main() {
   open_spiel::dominion::RunWitchTests();
   open_spiel::dominion::RunThroneRoomTests();
   open_spiel::dominion::RunMerchantTests();
+  open_spiel::dominion::RunMoneylenderTests();
   // JSON round-trip checks
   open_spiel::dominion::RunChapelJsonRoundTrip();
   open_spiel::dominion::RunCellarJsonRoundTrip();

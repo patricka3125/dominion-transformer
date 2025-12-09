@@ -59,6 +59,7 @@ add_library(dominion_cpp_game STATIC
     src/cards/witch.cpp
     src/cards/throne_room.cpp
     src/cards/silver.cpp
+    src/cards/moneylender.cpp
 )
 
 # Public headers and OpenSpiel headers
@@ -121,6 +122,7 @@ if (OPEN_SPIEL_LIB)
       src/cards/militia_test.cpp
       src/cards/witch_test.cpp
       src/cards/throne_room_test.cpp
+      src/cards/moneylender_test.cpp
       src/cards/merchant_test.cpp
   )
   target_link_libraries(dominion_cards_test
