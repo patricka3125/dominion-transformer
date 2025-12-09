@@ -85,10 +85,9 @@ graph TB
 // Channel 0: Phase and Turn Metadata
 [current_player_one_hot(2),    // [1,0] or [0,1]
  phase_one_hot(2),             // actionPhase=1,0 or buyPhase=0,1
- turn_number_normalized,        // turn/100 (capped)
  game_progress_estimate,        // provinces_taken/8
- empty_piles_count,            // count/10
- ...padding(57)]
+ empty_piles_count,            // count/3
+ ...padding(58)]
 
 // Channel 1: Current Player Resources
 [actions_normalized,           // actions/10
